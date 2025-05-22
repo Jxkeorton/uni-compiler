@@ -1,11 +1,31 @@
+// this code is based on javascript
 const alphabet = ['A','B','C'];
 
+console.log('Starting cipher program');
+
 function cipher(text, key) {
-    let result = [];
+    let result = 0;
+    console.log('Processing cipher with key:', key);
+    
     for(let i = 0; i < 10; i++) {
-        result = i + key;
+        if(i > 5) {
+            result = i + key;
+            console.log('Large index result:', result);
+        } else {
+            result = i * 2;
+            console.log('Small index result:', result);
+        }
     }
     return result;
 }
 
 const text = cipher('hello', 4);
+console.log('Final result:', text);
+
+if(text === 13) {
+    const message = 'Success';
+    console.log(message);
+} else {
+    const message = 'Failed';
+    console.log(message);
+}

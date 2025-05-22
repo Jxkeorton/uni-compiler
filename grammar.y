@@ -13,7 +13,7 @@ typedef enum {
     NODE_IF, NODE_FOR, NODE_RETURN, NODE_FUNCTION_CALL, NODE_LITERAL,
     NODE_STATEMENT_LIST, NODE_BLOCK, NODE_PARAMETER, NODE_PARAMETER_LIST,
     NODE_ARRAY, NODE_ARRAY_ELEMENT, NODE_ARRAY_ACCESS, NODE_METHOD_CALL,
-    NODE_PROPERTY_ACCESS, NODE_ARGUMENT_LIST
+    NODE_PROPERTY_ACCESS, NODE_ARGUMENT_LIST, NODE_CONSOLE_LOG
 } NodeType;
 
 typedef struct ASTNode {
@@ -48,6 +48,7 @@ ASTNode* root = NULL;
 %token FOR
 %token CONST LET IF ELSE
 %token EQ NE LE GE PLUSONE STRICTEQ
+%token CONSOLE LOG
 
 %union {
     int integer;
@@ -55,7 +56,7 @@ ASTNode* root = NULL;
     struct ASTNode* ast_node;
 }
 
-%type <ast_node> argument argument_list program statement expression function_call array_initializer if_statement function_declaration for_statement statement_list block term factor parameter_list for_init for_update string_list string_element
+%type <ast_node> argument argument_list program statement expression function_call array_initializer if_statement function_declaration for_statement statement_list block term factor parameter_list for_init for_update string_list string_element console_log
 
 %precedence ARRAY_ACCESS PROPERTY_ACCESS METHOD_CALL ASSIGNMENT ELSE
 %right '='
@@ -81,6 +82,7 @@ statement:
     | LET IDENTIFIER '=' array_initializer ';'      { $$ = createASTNode(NODE_ASSIGNMENT, strdup($2), 0, $4, NULL); }
     | CONST IDENTIFIER '=' array_initializer ';'    { $$ = createASTNode(NODE_ASSIGNMENT, strdup($2), 0, $4, NULL); }
     | CONST IDENTIFIER '=' function_call ';'        { $$ = createASTNode(NODE_ASSIGNMENT, strdup($2), 0, $4, NULL); }
+    | console_log ';'                               { $$ = $1; }
     | if_statement                                  { $$ = $1; }
     | function_declaration                          { $$ = $1; }
     | for_statement                                 { $$ = $1; }
@@ -90,6 +92,13 @@ statement:
 statement_list:
     statement_list statement { $$ = createASTNode(NODE_STATEMENT_LIST, NULL, 0, $1, $2); }
     | statement              { $$ = $1; }
+    ;
+
+/* -------------------- Console.log -------------------- */
+
+console_log:
+    CONSOLE '.' LOG '(' argument_list ')'   { $$ = createASTNode(NODE_CONSOLE_LOG, NULL, 0, $5, NULL); }
+  | CONSOLE '.' LOG '(' ')'                 { $$ = createASTNode(NODE_CONSOLE_LOG, NULL, 0, NULL, NULL); }
     ;
 
 /* -------------------- Function Declarations -------------------- */
@@ -265,6 +274,21 @@ void yyerror(const char *s) {
     fprintf(stderr, "Parser error: %s\n", s);
 }
 
+void print_string(const char* str) {
+    // Remove quotes from string
+    char* clean_str = malloc(strlen(str) + 1);
+    int j = 0;
+    for (int i = 0; str[i]; i++) {
+        if (str[i] != '"' && str[i] != '\'') {
+            clean_str[j++] = str[i];
+        }
+    }
+    clean_str[j] = '\0';
+    
+    printf("%s", clean_str);
+    free(clean_str);
+}
+
 void generateCode(ASTNode* node, FILE* output) {
     if (!node) return;
 
@@ -276,6 +300,51 @@ void generateCode(ASTNode* node, FILE* output) {
         case NODE_STATEMENT_LIST:
             generateCode(node->left, output);
             generateCode(node->right, output);
+            break;
+            
+        case NODE_CONSOLE_LOG:
+            fprintf(output, "; console.log() implementation\n");
+            if (node->left) {
+                // Generate code for arguments
+                ASTNode* arg = node->left;
+                while (arg) {
+                    if (arg->type == NODE_ARGUMENT_LIST) {
+                        ASTNode* current_arg = arg->left;
+                        if (current_arg) {
+                            if (current_arg->type == NODE_LITERAL) {
+                                if (current_arg->identifier) {
+                                    // String literal
+                                    fprintf(output, "    ; Print string: %s\n", current_arg->identifier);
+                                    fprintf(output, "    mov eax, 4          ; sys_write\n");
+                                    fprintf(output, "    mov ebx, 1          ; stdout\n");
+                                    fprintf(output, "    mov ecx, str_%p     ; string address\n", (void*)current_arg);
+                                    fprintf(output, "    mov edx, %d         ; string length\n", (int)strlen(current_arg->identifier) - 2); // -2 for quotes
+                                    fprintf(output, "    int 0x80            ; call kernel\n");
+                                } else {
+                                    // Integer literal
+                                    fprintf(output, "    ; Print integer: %d\n", current_arg->value);
+                                    fprintf(output, "    mov eax, %d\n", current_arg->value);
+                                    fprintf(output, "    call print_integer\n");
+                                }
+                            } else if (current_arg->type == NODE_VARIABLE) {
+                                // Variable
+                                fprintf(output, "    ; Print variable: %s\n", current_arg->identifier);
+                                fprintf(output, "    mov eax, [%s]\n", current_arg->identifier);
+                                fprintf(output, "    call print_integer\n");
+                            }
+                        }
+                        arg = arg->right;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            // Print newline
+            fprintf(output, "    mov eax, 4          ; sys_write\n");
+            fprintf(output, "    mov ebx, 1          ; stdout\n");
+            fprintf(output, "    mov ecx, newline    ; newline character\n");
+            fprintf(output, "    mov edx, 1          ; length\n");
+            fprintf(output, "    int 0x80            ; call kernel\n");
             break;
             
         case NODE_ASSIGNMENT:
@@ -314,7 +383,7 @@ void generateCode(ASTNode* node, FILE* output) {
         case NODE_LITERAL:
             if (node->identifier) {
                 fprintf(output, "; String literal: %s\n", node->identifier);
-                fprintf(output, "mov eax, 0  ; String literals not fully implemented\n");
+                fprintf(output, "mov eax, str_%p\n", (void*)node);
             } else {
                 fprintf(output, "mov eax, %d\n", node->value);
             }
@@ -447,6 +516,26 @@ void generateCode(ASTNode* node, FILE* output) {
     }
 }
 
+void generateStringLiterals(ASTNode* node, FILE* output) {
+    if (!node) return;
+    
+    if (node->type == NODE_LITERAL && node->identifier) {
+        // Generate string literal data
+        fprintf(output, "str_%p: db ", (void*)node);
+        // Remove quotes and print each character
+        char* str = node->identifier;
+        int len = strlen(str);
+        for (int i = 1; i < len - 1; i++) { // Skip quotes
+            fprintf(output, "%d", (int)str[i]);
+            if (i < len - 2) fprintf(output, ", ");
+        }
+        fprintf(output, "\n");
+    }
+    
+    generateStringLiterals(node->left, output);
+    generateStringLiterals(node->right, output);
+}
+
 void freeAST(ASTNode* node) {
     if (!node) return;
     freeAST(node->left);
@@ -481,10 +570,28 @@ int main() {
             fprintf(output, "    ; Variables will be allocated here\n");
             fprintf(output, "    alphabet resb 100\n");
             fprintf(output, "    result resb 100\n");
-            fprintf(output, "    text resb 100\n\n");
+            fprintf(output, "    text resb 100\n");
+            fprintf(output, "    newline db 10   ; newline character\n");
+            fprintf(output, "    ; String literals\n");
+            generateStringLiterals(root, output);
+            fprintf(output, "\n");
             
             fprintf(output, "section .text\n");
             fprintf(output, "global _start\n\n");
+            
+            // Add print_integer function
+            fprintf(output, "print_integer:\n");
+            fprintf(output, "    ; Simple integer to ASCII conversion and print\n");
+            fprintf(output, "    ; This is a simplified version - only handles single digits\n");
+            fprintf(output, "    add eax, 48         ; Convert to ASCII\n");
+            fprintf(output, "    mov [temp_char], eax\n");
+            fprintf(output, "    mov eax, 4          ; sys_write\n");
+            fprintf(output, "    mov ebx, 1          ; stdout\n");
+            fprintf(output, "    mov ecx, temp_char  ; character address\n");
+            fprintf(output, "    mov edx, 1          ; length\n");
+            fprintf(output, "    int 0x80            ; call kernel\n");
+            fprintf(output, "    ret\n\n");
+            
             fprintf(output, "_start:\n");
             fprintf(output, "    ; Initialize variables and call main logic\n");
             
@@ -494,6 +601,10 @@ int main() {
             fprintf(output, "    mov eax, 1      ; sys_exit\n");
             fprintf(output, "    mov ebx, 0      ; exit status\n");
             fprintf(output, "    int 0x80        ; call kernel\n");
+            
+            fprintf(output, "\nsection .bss\n");
+            fprintf(output, "    temp_char resb 1    ; temporary character storage\n");
+            
             fclose(output);
             printf("Assembly code generated in output.asm\n");
         }

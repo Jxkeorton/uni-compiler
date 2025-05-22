@@ -16,6 +16,8 @@ void writetofile(char *ty, char *data);
 "else"          { writetofile("ELSE", yytext); return ELSE; }
 "for"           { writetofile("FOR", yytext); return FOR; }
 "return"        { writetofile("RETURN", yytext); return RETURN; }
+"console"       { writetofile("CONSOLE", yytext); return CONSOLE; }
+"log"           { writetofile("LOG", yytext); return LOG; }
 
 "=="            { writetofile("EQ", yytext); return EQ; }
 "==="           { writetofile("STRICTEQ", yytext); return STRICTEQ; }
