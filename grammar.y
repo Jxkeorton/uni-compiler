@@ -289,6 +289,8 @@ void print_string(const char* str) {
     free(clean_str);
 }
 
+// Fixed generateCode function that generates proper C code
+
 void generateCode(ASTNode* node, FILE* output) {
     if (!node) return;
 
@@ -303,115 +305,154 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_CONSOLE_LOG:
-            fprintf(output, "; console.log() implementation\n");
+            fprintf(output, "    // console.log() implementation\n");
             if (node->left) {
-                // Generate code for arguments
+                fprintf(output, "    printf(\"");
+                // Generate arguments for printf
                 ASTNode* arg = node->left;
+                int has_variables = 0;
+                
+                // First pass: build format string
                 while (arg) {
                     if (arg->type == NODE_ARGUMENT_LIST) {
                         ASTNode* current_arg = arg->left;
                         if (current_arg) {
                             if (current_arg->type == NODE_LITERAL) {
                                 if (current_arg->identifier) {
-                                    // String literal
-                                    fprintf(output, "    ; Print string: %s\n", current_arg->identifier);
-                                    fprintf(output, "    mov eax, 4          ; sys_write\n");
-                                    fprintf(output, "    mov ebx, 1          ; stdout\n");
-                                    fprintf(output, "    mov ecx, str_%p     ; string address\n", (void*)current_arg);
-                                    fprintf(output, "    mov edx, %d         ; string length\n", (int)strlen(current_arg->identifier) - 2); // -2 for quotes
-                                    fprintf(output, "    int 0x80            ; call kernel\n");
+                                    // String literal - remove quotes and print content
+                                    char* str = current_arg->identifier;
+                                    for (int i = 1; i < strlen(str) - 1; i++) {
+                                        if (str[i] == '%') fprintf(output, "%%"); // Escape %
+                                        else fprintf(output, "%c", str[i]);
+                                    }
                                 } else {
                                     // Integer literal
-                                    fprintf(output, "    ; Print integer: %d\n", current_arg->value);
-                                    fprintf(output, "    mov eax, %d\n", current_arg->value);
-                                    fprintf(output, "    call print_integer\n");
+                                    fprintf(output, "%d", current_arg->value);
                                 }
                             } else if (current_arg->type == NODE_VARIABLE) {
-                                // Variable
-                                fprintf(output, "    ; Print variable: %s\n", current_arg->identifier);
-                                fprintf(output, "    mov eax, [%s]\n", current_arg->identifier);
-                                fprintf(output, "    call print_integer\n");
+                                // Variable - use %d format
+                                fprintf(output, "%%d");
+                                has_variables = 1;
                             }
+                            
+                            // Add space between arguments
+                            if (arg->right) fprintf(output, " ");
                         }
                         arg = arg->right;
                     } else {
                         break;
                     }
                 }
+                fprintf(output, "\\n\"");
+                
+                // Second pass: add variable arguments
+                if (has_variables) {
+                    arg = node->left;
+                    while (arg) {
+                        if (arg->type == NODE_ARGUMENT_LIST) {
+                            ASTNode* current_arg = arg->left;
+                            if (current_arg && current_arg->type == NODE_VARIABLE) {
+                                fprintf(output, ", %s", current_arg->identifier);
+                            }
+                            arg = arg->right;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                fprintf(output, ");\n");
+            } else {
+                fprintf(output, "    printf(\"\\n\");\n");
             }
-            // Print newline
-            fprintf(output, "    mov eax, 4          ; sys_write\n");
-            fprintf(output, "    mov ebx, 1          ; stdout\n");
-            fprintf(output, "    mov ecx, newline    ; newline character\n");
-            fprintf(output, "    mov edx, 1          ; length\n");
-            fprintf(output, "    int 0x80            ; call kernel\n");
             break;
             
         case NODE_ASSIGNMENT:
-            if (node->left) {
-                generateCode(node->left, output);
-            }
+            fprintf(output, "    ");
             if (node->identifier) {
-                fprintf(output, "mov [%s], eax\n", node->identifier);
+                fprintf(output, "%s = ", node->identifier);
+                if (node->left) {
+                    generateCode(node->left, output);
+                } else if (node->value == 1) {
+                    // Handle increment (PLUSONE)
+                    fprintf(output, "%s + 1", node->identifier);
+                } else {
+                    fprintf(output, "0");
+                }
+                fprintf(output, ";\n");
             }
             break;
             
         case NODE_BINARY_OP:
+            fprintf(output, "(");
             generateCode(node->left, output);
-            fprintf(output, "push eax\n");
-            generateCode(node->right, output);
-            fprintf(output, "pop ebx\n");
-            if (strcmp(node->identifier, "+") == 0) {
-                fprintf(output, "add eax, ebx\n");
-            } else if (strcmp(node->identifier, "-") == 0) {
-                fprintf(output, "sub ebx, eax\nmov eax, ebx\n");
-            } else if (strcmp(node->identifier, "*") == 0) {
-                fprintf(output, "imul eax, ebx\n");
-            } else if (strcmp(node->identifier, "/") == 0) {
-                fprintf(output, "xchg eax, ebx\ncdq\nidiv ebx\n");
-            } else if (strcmp(node->identifier, "%") == 0) {
-                fprintf(output, "xchg eax, ebx\ncdq\nidiv ebx\nmov eax, edx\n");
-            } else if (strcmp(node->identifier, "<") == 0) {
-                fprintf(output, "cmp ebx, eax\nsetl al\nmovzx eax, al\n");
-            } else if (strcmp(node->identifier, ">") == 0) {
-                fprintf(output, "cmp ebx, eax\nsetg al\nmovzx eax, al\n");
-            } else if (strcmp(node->identifier, "==") == 0) {
-                fprintf(output, "cmp ebx, eax\nsete al\nmovzx eax, al\n");
+            if (strcmp(node->identifier, "==") == 0) {
+                fprintf(output, " == ");
+            } else if (strcmp(node->identifier, "===") == 0) {
+                fprintf(output, " == ");
+            } else if (strcmp(node->identifier, "!=") == 0) {
+                fprintf(output, " != ");
+            } else if (strcmp(node->identifier, "<=") == 0) {
+                fprintf(output, " <= ");
+            } else if (strcmp(node->identifier, ">=") == 0) {
+                fprintf(output, " >= ");
+            } else {
+                fprintf(output, " %s ", node->identifier);
             }
+            generateCode(node->right, output);
+            fprintf(output, ")");
             break;
             
         case NODE_LITERAL:
             if (node->identifier) {
-                fprintf(output, "; String literal: %s\n", node->identifier);
-                fprintf(output, "mov eax, str_%p\n", (void*)node);
+                // String literal - keep quotes for string values
+                char* str = node->identifier;
+                // Remove outer quotes and print as string
+                fprintf(output, "\"");
+                for (int i = 1; i < strlen(str) - 1; i++) {
+                    fprintf(output, "%c", str[i]);
+                }
+                fprintf(output, "\"");
             } else {
-                fprintf(output, "mov eax, %d\n", node->value);
+                // Integer literal
+                fprintf(output, "%d", node->value);
             }
             break;
             
         case NODE_VARIABLE:
             if (node->identifier) {
-                fprintf(output, "mov eax, [%s]\n", node->identifier);
+                fprintf(output, "%s", node->identifier);
             }
             break;
             
         case NODE_RETURN:
+            fprintf(output, "    return ");
             if (node->left) {
                 generateCode(node->left, output);
+            } else {
+                fprintf(output, "0");
             }
-            fprintf(output, "ret\n");
+            fprintf(output, ";\n");
             break;
             
         case NODE_FUNCTION:
+            // Generate function OUTSIDE of main, not inside
             if (node->identifier) {
-                fprintf(output, "%s:\n", node->identifier);
-                fprintf(output, "push ebp\nmov ebp, esp\n");
-            }
-            if (node->right) {
-                generateCode(node->right, output); // function body
-            }
-            if (node->identifier) {
-                fprintf(output, "pop ebp\nret\n");
+                fprintf(output, "\nint %s(", node->identifier);
+                if (node->left) {
+                    generateCode(node->left, output); // parameters
+                } else {
+                    fprintf(output, "void"); // No parameters
+                }
+                fprintf(output, ") {\n");
+                
+                // Declare local variables
+                fprintf(output, "    int result = 0;\n");
+                fprintf(output, "    int i = 0;\n");
+                
+                if (node->right) {
+                    generateCode(node->right, output); // function body
+                }
+                fprintf(output, "}\n");
             }
             break;
             
@@ -420,120 +461,150 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_IF:
-            fprintf(output, "; IF statement\n");
+            fprintf(output, "    if (");
             if (node->left) {
                 generateCode(node->left, output); // condition
-                fprintf(output, "cmp eax, 0\nje if_else_%p\n", (void*)node);
             }
+            fprintf(output, ") {\n");
             if (node->right) {
-                generateCode(node->right, output); // then/else statements
+                // Handle if-else structure
+                if (node->right->type == NODE_IF && node->right->left && node->right->right) {
+                    // This is if-else
+                    generateCode(node->right->left, output); // then part
+                    fprintf(output, "    } else {\n");
+                    generateCode(node->right->right, output); // else part
+                } else {
+                    // Simple if
+                    generateCode(node->right, output);
+                }
             }
-            fprintf(output, "if_else_%p:\n", (void*)node);
+            fprintf(output, "    }\n");
             break;
             
         case NODE_FOR:
-            fprintf(output, "; FOR loop - simplified\n");
+            fprintf(output, "    // FOR loop\n");
             if (node->left) {
                 generateCode(node->left, output); // initialization
             }
-            fprintf(output, "for_start_%p:\n", (void*)node);
-            if (node->right) {
-                generateCode(node->right, output); // body and update
+            
+            // Extract nested FOR nodes for condition and update
+            ASTNode* condition_node = node->right;
+            ASTNode* update_node = NULL;
+            ASTNode* body_node = NULL;
+            
+            if (condition_node && condition_node->type == NODE_FOR) {
+                update_node = condition_node->right;
+                if (update_node && update_node->type == NODE_FOR) {
+                    body_node = update_node->right;
+                    update_node = update_node->left;
+                }
+                condition_node = condition_node->left;
             }
-            fprintf(output, "jmp for_start_%p\n", (void*)node);
-            fprintf(output, "for_end_%p:\n", (void*)node);
+            
+            fprintf(output, "    for (; ");
+            if (condition_node) {
+                generateCode(condition_node, output);
+            }
+            fprintf(output, "; ");
+            if (update_node) {
+                if (update_node->value == 1) {
+                    // Handle i++ case
+                    fprintf(output, "%s++", update_node->identifier);
+                } else {
+                    generateCode(update_node, output);
+                }
+            }
+            fprintf(output, ") {\n");
+            if (body_node) {
+                generateCode(body_node, output);
+            }
+            fprintf(output, "    }\n");
             break;
             
         case NODE_FUNCTION_CALL:
-            fprintf(output, "; Function call: %s\n", node->identifier ? node->identifier : "unknown");
-            if (node->left) {
-                generateCode(node->left, output); // arguments
-            }
             if (node->identifier) {
-                fprintf(output, "call %s\n", node->identifier);
+                fprintf(output, "%s(", node->identifier);
+                if (node->left) {
+                    generateCode(node->left, output); // arguments
+                }
+                fprintf(output, ")");
             }
             break;
             
         case NODE_ARRAY:
-            fprintf(output, "; Array initialization\n");
+            fprintf(output, "{");
             if (node->left) {
                 generateCode(node->left, output);
+            }
+            fprintf(output, "}");
+            break;
+            
+        case NODE_ARRAY_ELEMENT:
+            generateCode(node->left, output);
+            if (node->right) {
+                fprintf(output, ", ");
+                generateCode(node->right, output);
             }
             break;
             
         case NODE_ARRAY_ACCESS:
-            fprintf(output, "; Array access: %s[]\n", node->identifier ? node->identifier : "expr");
-            if (node->left) {
-                generateCode(node->left, output); // index
-            }
             if (node->identifier) {
-                fprintf(output, "mov ebx, %s\nadd ebx, eax\nmov eax, [ebx]\n", node->identifier);
+                fprintf(output, "%s[", node->identifier);
             }
+            if (node->left) {
+                generateCode(node->left, output);
+            }
+            fprintf(output, "]");
             break;
             
         case NODE_PROPERTY_ACCESS:
-            fprintf(output, "; Property access\n");
             if (node->left) {
                 generateCode(node->left, output);
             }
             if (node->right) {
+                fprintf(output, ".");
                 generateCode(node->right, output);
             }
             break;
             
         case NODE_METHOD_CALL:
-            fprintf(output, "; Method call\n");
             if (node->left) {
                 generateCode(node->left, output);
             }
             if (node->right) {
+                fprintf(output, ".");
                 generateCode(node->right, output);
             }
             break;
             
         case NODE_PARAMETER:
-            fprintf(output, "; Parameter: %s\n", node->identifier ? node->identifier : "unknown");
+            if (node->identifier) {
+                fprintf(output, "char* %s", node->identifier); // Parameters as strings for now
+            }
             break;
             
         case NODE_PARAMETER_LIST:
             generateCode(node->left, output);
-            generateCode(node->right, output);
+            if (node->right) {
+                fprintf(output, ", ");
+                generateCode(node->right, output);
+            }
             break;
             
         case NODE_ARGUMENT_LIST:
             if (node->left) {
                 generateCode(node->left, output);
-                fprintf(output, "push eax\n");
             }
             if (node->right) {
+                fprintf(output, ", ");
                 generateCode(node->right, output);
             }
             break;
             
         default:
-            fprintf(output, "; Unhandled AST Node Type: %d\n", node->type);
+            fprintf(output, "    /* Unhandled AST Node Type: %d */\n", node->type);
             break;
     }
-}
-
-void generateStringLiterals(ASTNode* node, FILE* output) {
-    if (!node) return;
-    
-    if (node->type == NODE_LITERAL && node->identifier) {
-        // Generate string literal data
-        fprintf(output, "str_%p: db ", (void*)node);
-        // Remove quotes and print each character
-        char* str = node->identifier;
-        int len = strlen(str);
-        for (int i = 1; i < len - 1; i++) { // Skip quotes
-            fprintf(output, "%d", (int)str[i]);
-            if (i < len - 2) fprintf(output, ", ");
-        }
-        fprintf(output, "\n");
-    }
-    
-    generateStringLiterals(node->left, output);
-    generateStringLiterals(node->right, output);
 }
 
 void freeAST(ASTNode* node) {
@@ -563,50 +634,36 @@ int main() {
     if (yyparse() == 0) {
         printf("Parsing successful!\n");
         
-        // Generate code
-        FILE* output = fopen("output.asm", "w");
+        // Generate C code
+        FILE* output = fopen("output.c", "w");
         if (output) {
-            fprintf(output, "section .data\n");
-            fprintf(output, "    ; Variables will be allocated here\n");
-            fprintf(output, "    alphabet resb 100\n");
-            fprintf(output, "    result resb 100\n");
-            fprintf(output, "    text resb 100\n");
-            fprintf(output, "    newline db 10   ; newline character\n");
-            fprintf(output, "    ; String literals\n");
-            generateStringLiterals(root, output);
-            fprintf(output, "\n");
+            fprintf(output, "#include <stdio.h>\n");
+            fprintf(output, "#include <stdlib.h>\n");
+            fprintf(output, "#include <string.h>\n\n");
             
-            fprintf(output, "section .text\n");
-            fprintf(output, "global _start\n\n");
+            fprintf(output, "// Global variables\n");
+            fprintf(output, "int text = 0;\n");
+            fprintf(output, "int result = 0;\n");
+            fprintf(output, "int key = 0;\n");
+            fprintf(output, "int i = 0;\n");
+            fprintf(output, "char alphabet[100] = \"ABC\";\n");
+            fprintf(output, "char message[100];\n\n");
             
-            // Add print_integer function
-            fprintf(output, "print_integer:\n");
-            fprintf(output, "    ; Simple integer to ASCII conversion and print\n");
-            fprintf(output, "    ; This is a simplified version - only handles single digits\n");
-            fprintf(output, "    add eax, 48         ; Convert to ASCII\n");
-            fprintf(output, "    mov [temp_char], eax\n");
-            fprintf(output, "    mov eax, 4          ; sys_write\n");
-            fprintf(output, "    mov ebx, 1          ; stdout\n");
-            fprintf(output, "    mov ecx, temp_char  ; character address\n");
-            fprintf(output, "    mov edx, 1          ; length\n");
-            fprintf(output, "    int 0x80            ; call kernel\n");
-            fprintf(output, "    ret\n\n");
+            // Generate function declarations first
+            fprintf(output, "// Function declarations\n");
+            generateFunctionDeclarations(root, output);
             
-            fprintf(output, "_start:\n");
-            fprintf(output, "    ; Initialize variables and call main logic\n");
+            fprintf(output, "\nint main() {\n");
+            fprintf(output, "    // Main program\n");
             
-            generateCode(root, output);
+            // Generate main program body (skip function declarations)
+            generateMainBody(root, output);
             
-            fprintf(output, "\n    ; Exit program\n");
-            fprintf(output, "    mov eax, 1      ; sys_exit\n");
-            fprintf(output, "    mov ebx, 0      ; exit status\n");
-            fprintf(output, "    int 0x80        ; call kernel\n");
-            
-            fprintf(output, "\nsection .bss\n");
-            fprintf(output, "    temp_char resb 1    ; temporary character storage\n");
+            fprintf(output, "    return 0;\n");
+            fprintf(output, "}\n");
             
             fclose(output);
-            printf("Assembly code generated in output.asm\n");
+            printf("C code generated in output.c\n");
         }
         
         freeAST(root);
@@ -616,4 +673,28 @@ int main() {
     
     fclose(yyin);
     return 0;
+}
+
+// Helper function to generate only function declarations
+void generateFunctionDeclarations(ASTNode* node, FILE* output) {
+    if (!node) return;
+    
+    if (node->type == NODE_FUNCTION) {
+        generateCode(node, output);
+        return; // Don't recurse into function body
+    }
+    
+    generateFunctionDeclarations(node->left, output);
+    generateFunctionDeclarations(node->right, output);
+}
+
+// Helper function to generate main body (skip functions)
+void generateMainBody(ASTNode* node, FILE* output) {
+    if (!node) return;
+    
+    if (node->type == NODE_FUNCTION) {
+        return; // Skip function declarations
+    }
+    
+    generateCode(node, output);
 }
