@@ -6,6 +6,22 @@
 extern int yylex();
 void yyerror(const char *s);
 
+// Symbol table structure
+typedef struct Symbol {
+    char* name;
+    int value;
+    int is_initialized;
+    struct Symbol* next;
+} Symbol;
+
+// Symbol table functions
+Symbol* symbol_table = NULL;
+void add_symbol(char* name, int value, int is_initialized);
+Symbol* lookup_symbol(char* name);
+int is_declared(char* name);
+void free_symbol_table();
+void print_symbol_table();
+
 // Simplified AST node types
 typedef enum { 
     NODE_PROGRAM, NODE_VARIABLE_DECL, NODE_ASSIGNMENT, NODE_BINARY_OP, 
@@ -136,12 +152,32 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_VARIABLE_DECL:
+            if (is_declared(node->identifier)) {
+                fprintf(stderr, "Error: Variable '%s' already declared\n", node->identifier);
+                return;
+            }
+            // Add to symbol table
+            if (node->left && node->left->type == NODE_LITERAL) {
+                add_symbol(node->identifier, node->left->value, 1);
+            } else {
+                add_symbol(node->identifier, 0, 0); // Unknown value at compile time
+            }
             fprintf(output, "    int %s = ", node->identifier);
             generateCode(node->left, output);
             fprintf(output, ";\n");
             break;
             
         case NODE_ASSIGNMENT:
+            if (!is_declared(node->identifier)) {
+                fprintf(stderr, "Error: Variable '%s' not declared\n", node->identifier);
+                return;
+            }
+            // Update symbol table value if it's a literal
+            Symbol* sym = lookup_symbol(node->identifier);
+            if (sym && node->left && node->left->type == NODE_LITERAL) {
+                sym->value = node->left->value;
+                sym->is_initialized = 1;
+            }
             fprintf(output, "    %s = ", node->identifier);
             generateCode(node->left, output);
             fprintf(output, ";\n");
@@ -194,6 +230,10 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_VARIABLE:
+            if (!is_declared(node->identifier)) {
+                fprintf(stderr, "Error: Variable '%s' not declared\n", node->identifier);
+                return;
+            }
             fprintf(output, "%s", node->identifier);
             break;
             
@@ -228,6 +268,58 @@ void freeAST(ASTNode* node) {
     free(node);
 }
 
+// Symbol table implementation
+void add_symbol(char* name, int value, int is_initialized) {
+    Symbol* new_symbol = (Symbol*)malloc(sizeof(Symbol));
+    new_symbol->name = strdup(name);
+    new_symbol->value = value;
+    new_symbol->is_initialized = is_initialized;
+    new_symbol->next = symbol_table;
+    symbol_table = new_symbol;
+    printf("Added symbol: %s = %d (initialized: %s)\n", name, value, is_initialized ? "yes" : "no");
+}
+
+Symbol* lookup_symbol(char* name) {
+    Symbol* current = symbol_table;
+    while (current) {
+        if (strcmp(current->name, name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+int is_declared(char* name) {
+    return lookup_symbol(name) != NULL;
+}
+
+void free_symbol_table() {
+    Symbol* current = symbol_table;
+    while (current) {
+        Symbol* temp = current;
+        current = current->next;
+        free(temp->name);
+        free(temp);
+    }
+    symbol_table = NULL;
+}
+
+void print_symbol_table() {
+    printf("\n=== Symbol Table ===\n");
+    Symbol* current = symbol_table;
+    if (!current) {
+        printf("(empty)\n");
+        return;
+    }
+    while (current) {
+        printf("Variable: %s, Value: %d, Initialized: %s\n", 
+               current->name, current->value, current->is_initialized ? "yes" : "no");
+        current = current->next;
+    }
+    printf("==================\n\n");
+}
+
 int main() {
     extern FILE *yyin;
     yyin = fopen("input.txt", "r");
@@ -238,6 +330,9 @@ int main() {
     
     if (yyparse() == 0) {
         printf("Parsing successful!\n");
+        
+        // Print symbol table for debugging
+        print_symbol_table();
         
         // Generate C code
         FILE* output = fopen("output.c", "w");
@@ -257,8 +352,10 @@ int main() {
         }
         
         freeAST(root);
+        free_symbol_table();
     } else {
         fprintf(stderr, "Parsing failed!\n");
+        free_symbol_table();
     }
     
     fclose(yyin);
