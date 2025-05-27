@@ -38,14 +38,14 @@ void report_error(int error_type, const char* format, ...);
 void report_warning(const char* format, ...);
 
 // symbol table functions
-int add_symbol_safe(char* name, int value, int is_initialized);
-Symbol* lookup_symbol_safe(char* name);
-int is_declared_safe(char* name);
+int add_symbol(char* name, int value, int is_initialized);
+Symbol* lookup_symbol(char* name);
+int is_declared(char* name);
 int mark_symbol_used(char* name);
 int mark_symbol_assigned(char* name);
 void validate_symbol_usage();
-void free_symbol_table_safe();
-void print_symbol_table_enhanced();
+void free_symbol_table();
+void print_symbol_table();
 
 // Memory safety helpers
 char* safe_strdup(const char* str);
@@ -99,10 +99,10 @@ ASTNode* root = NULL;
 /* Program Structure */
 program: statement_list { root = $1; $$ = $1; }
 
-/* Statements with Safe Symbol Table Integration */
+/* Statements */
 statement:
       LET IDENTIFIER '=' expression ';'     { 
-          if (!add_symbol_safe($2, 
+          if (!add_symbol($2, 
                               ($4 && $4->type == NODE_LITERAL) ? $4->value : 0,
                               ($4 && $4->type == NODE_LITERAL) ? 1 : 0)) {
               YYERROR;
@@ -111,7 +111,7 @@ statement:
       }
     | IDENTIFIER '=' expression ';'         { 
           // Check if variable exists and mark as assigned
-          if (!is_declared_safe($1)) {
+          if (!is_declared($1)) {
               YYERROR;
           }
           if (!mark_symbol_assigned($1)) {
@@ -161,7 +161,7 @@ expression:
 arithmetic_expr:
       INTEGER                               { $$ = createASTNode(NODE_LITERAL, NULL, $1, NULL, NULL); }
     | IDENTIFIER                            { 
-          // Safe variable usage checking
+          // Variable usage checking
           if (!mark_symbol_used($1)) {
               YYERROR;
           }
@@ -269,14 +269,14 @@ int validate_identifier(const char* name) {
     return 1;
 }
 
-// Enhanced symbol table functions
-int add_symbol_safe(char* name, int value, int is_initialized) {
+// Symbol table functions
+int add_symbol(char* name, int value, int is_initialized) {
     if (!validate_identifier(name)) {
         return 0;
     }
     
-    if (is_declared_safe(name)) {
-        Symbol* existing = lookup_symbol_safe(name);
+    if (is_declared(name)) {
+        Symbol* existing = lookup_symbol(name);
         if (existing) {
             report_error(ERROR_REDECLARATION, "Variable '%s' is already declared at line %d", 
                         name, existing->line_declared);
@@ -314,7 +314,7 @@ int add_symbol_safe(char* name, int value, int is_initialized) {
     return 1;
 }
 
-Symbol* lookup_symbol_safe(char* name) {
+Symbol* lookup_symbol(char* name) {
     if (!validate_identifier(name)) {
         return NULL;
     }
@@ -330,13 +330,13 @@ Symbol* lookup_symbol_safe(char* name) {
     return NULL;
 }
 
-int is_declared_safe(char* name) {
+int is_declared(char* name) {
     if (!name) {
         report_error(ERROR_SEMANTIC, "Checking declaration of NULL identifier");
         return 0;
     }
     
-    return lookup_symbol_safe(name) != NULL;
+    return lookup_symbol(name) != NULL;
 }
 
 int mark_symbol_used(char* name) {
@@ -344,7 +344,7 @@ int mark_symbol_used(char* name) {
         return 0;
     }
     
-    Symbol* symbol = lookup_symbol_safe(name);
+    Symbol* symbol = lookup_symbol(name);
     if (!symbol) {
         report_error(ERROR_UNDECLARED_VAR, "Variable '%s' is not declared", name);
         return 0;
@@ -365,7 +365,7 @@ int mark_symbol_assigned(char* name) {
         return 0;
     }
     
-    Symbol* symbol = lookup_symbol_safe(name);
+    Symbol* symbol = lookup_symbol(name);
     if (!symbol) {
         report_error(ERROR_UNDECLARED_VAR, "Cannot assign to undeclared variable '%s'", name);
         return 0;
@@ -406,8 +406,8 @@ void validate_symbol_usage() {
     printf("==============================\n\n");
 }
 
-void print_symbol_table_enhanced() {
-    printf("\n=== Enhanced Symbol Table ===\n");
+void print_symbol_table() {
+    printf("\n=== Symbol Table ===\n");
     
     if (!symbol_table) {
         printf("(empty)\n");
@@ -436,7 +436,7 @@ void print_symbol_table_enhanced() {
     printf("Total symbols: %d\n\n", symbol_count);
 }
 
-void free_symbol_table_safe() {
+void free_symbol_table() {
     Symbol* current = symbol_table;
     int freed_count = 0;
     
@@ -515,7 +515,7 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_VARIABLE_DECL:
-            // Symbol was already added safely during parsing
+            // Symbol was already added during parsing
             fprintf(output, "    int %s = ", node->identifier);
             generateCode(node->left, output);
             fprintf(output, ";\n");
@@ -523,7 +523,7 @@ void generateCode(ASTNode* node, FILE* output) {
             
         case NODE_ASSIGNMENT:
             // Variable existence was already checked during parsing
-            Symbol* sym = lookup_symbol_safe(node->identifier);
+            Symbol* sym = lookup_symbol(node->identifier);
             if (sym && node->left && node->left->type == NODE_LITERAL) {
                 sym->value = node->left->value;
             }
@@ -627,8 +627,8 @@ int main() {
     if (yyparse() == 0) {
         printf("✓ Parsing successful!\n");
         
-        // Enhanced symbol table reporting
-        print_symbol_table_enhanced();
+        // Symbol table reporting
+        print_symbol_table();
         
         // Validate symbol usage patterns
         validate_symbol_usage();
@@ -654,11 +654,11 @@ int main() {
         }
         
         freeAST(root);
-        free_symbol_table_safe();
+        free_symbol_table();
     } else {
         fprintf(stderr, "✗ Parsing failed!\n");
-        print_symbol_table_enhanced();
-        free_symbol_table_safe();
+        print_symbol_table();
+        free_symbol_table();
     }
     
     fclose(yyin);
