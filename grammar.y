@@ -51,6 +51,10 @@ void print_symbol_table();
 char* safe_strdup(const char* str);
 int validate_identifier(const char* name);
 
+// Compilation functions
+int compile_c_to_executable(const char* c_file, const char* exe_file);
+int run_executable(const char* exe_file);
+
 // AST node types
 typedef enum { 
     NODE_PROGRAM, NODE_VARIABLE_DECL, NODE_ASSIGNMENT, NODE_BINARY_OP, 
@@ -481,6 +485,51 @@ void get_symbol_statistics() {
     printf("========================\n\n");
 }
 
+// Compilation functions
+int compile_c_to_executable(const char* c_file, const char* exe_file) {
+    printf("\n=== Compiling C Code to Executable ===\n");
+    
+    // Build the gcc command
+    char command[512];
+    snprintf(command, sizeof(command), "gcc -o \"%s\" \"%s\"", exe_file, c_file);
+    
+    printf("Executing: %s\n", command);
+    
+    int result = system(command);
+    
+    if (result == 0) {
+        printf("✓ C compilation successful!\n");
+        printf("✓ Executable created: %s\n", exe_file);
+        return 1;
+    } else {
+        printf("✗ C compilation failed with exit code: %d\n", result);
+        return 0;
+    }
+}
+
+int run_executable(const char* exe_file) {
+    printf("\n=== Running Generated Executable ===\n");
+    
+    // Build the execution command
+    char command[256];
+    snprintf(command, sizeof(command), "\"%s\"", exe_file);
+    
+    printf("Executing: %s\n", command);
+    printf("--- Program Output ---\n");
+    
+    int result = system(command);
+    
+    printf("--- End Program Output ---\n");
+    
+    if (result == 0) {
+        printf("✓ Program executed successfully!\n");
+        return 1;
+    } else {
+        printf("✗ Program execution failed with exit code: %d\n", result);
+        return 0;
+    }
+}
+
 // Function to create AST nodes
 ASTNode* createASTNode(NodeType type, char* identifier, int value, ASTNode* left, ASTNode* right) {
     ASTNode* newNode = (ASTNode*)malloc(sizeof(ASTNode));
@@ -609,7 +658,7 @@ void freeAST(ASTNode* node) {
     free(node);
 }
 
-// Updated main function
+// Main function
 int main() {
     extern FILE *yyin;
     
@@ -622,10 +671,11 @@ int main() {
         return 1;
     }
     
-    printf("Starting compilation...\n");
+    printf("=== Starting Compilation Process ===\n");
+    printf("Step 1: Parsing source code...\n");
     
     if (yyparse() == 0) {
-        printf("✓ Parsing successful!\n");
+        printf("✓ Step 1 Complete: Parsing successful!\n");
         
         // Symbol table reporting
         print_symbol_table();
@@ -635,6 +685,8 @@ int main() {
         
         // Get statistics
         get_symbol_statistics();
+        
+        printf("Step 2: Generating C code...\n");
         
         // Generate C code
         FILE* output = fopen("output/output.c", "w");
@@ -650,15 +702,39 @@ int main() {
             fprintf(output, "}\n");
             
             fclose(output);
-            printf("✓ C code generated in output.c\n");
+            printf("✓ Step 2 Complete: C code generated in output/output.c\n");
+            
+            // Compile C code to executable
+            printf("Step 3: Compiling C code to executable...\n");
+            if (compile_c_to_executable("output/output.c", "output/program.exe")) {
+                printf("✓ Step 3 Complete: Executable created!\n");
+                
+                // NEW: Run the executable
+                printf("Step 4: Running the generated program...\n");
+                if (run_executable("output/program.exe")) {
+                    printf("✓ Step 4 Complete: Program executed successfully!\n");
+                    printf("\n=== COMPILATION PIPELINE COMPLETE ===\n");
+                    printf("✓ Source parsed\n");
+                    printf("✓ C code generated\n");
+                    printf("✓ Executable compiled\n");
+                    printf("✓ Program executed\n");
+                    printf("=========================================\n");
+                } else {
+                    printf("✗ Step 4 Failed: Program execution failed\n");
+                }
+            } else {
+                printf("✗ Step 3 Failed: C compilation failed\n");
+                printf("Make sure you have GCC installed and accessible in your PATH\n");
+            }
         }
         
         freeAST(root);
         free_symbol_table();
     } else {
-        fprintf(stderr, "✗ Parsing failed!\n");
+        fprintf(stderr, "✗ Step 1 Failed: Parsing failed!\n");
         print_symbol_table();
         free_symbol_table();
+        return 1;
     }
     
     fclose(yyin);
