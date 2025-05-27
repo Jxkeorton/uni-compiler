@@ -1,0 +1,100 @@
+// ====================================================================
+// TEST SUITE 
+// ====================================================================
+// Instructions: Comment out sections you don't want to test
+// ====================================================================
+
+// ====================================================================
+// TEST 1: BASIC VARIABLES (Should work)
+// ====================================================================
+let number1 = 10;
+let number2 = 5;
+let result = 0;
+console.log('Variables declared');
+
+// ====================================================================
+// TEST 2: ARITHMETIC (Should work)
+// ====================================================================
+result = number1 + number2;
+console.log('Addition:', result);
+
+result = number1 - number2;
+console.log('Subtraction:', result);
+
+result = number1 * number2;
+console.log('Multiplication:', result);
+
+// ====================================================================
+// TEST 3: IF STATEMENTS (Should work)
+// ====================================================================
+if (number1 > number2) {
+    console.log('Number1 is larger');
+} else {
+    console.log('Number2 is larger');
+}
+
+if (number1 === 10) {
+    console.log('Number1 equals 10');
+}
+
+// ====================================================================
+// TEST 4: COMPARISONS (Should work)
+// ====================================================================
+if (result == 50) {
+    console.log('Equal test passed');
+}
+
+if (result != 25) {
+    console.log('Not equal test passed');
+}
+
+if (result >= 50) {
+    console.log('Greater equal test passed');
+}
+
+// ====================================================================
+// TEST 5: COMPLEX EXPRESSIONS (Should work)
+// ====================================================================
+let calculation = 10 + 5 * 2;
+console.log('Complex calc:', calculation);
+
+let parentheses = (number1 + number2) * 2;
+console.log('Parentheses:', parentheses);
+
+// ====================================================================
+// ERROR TESTS - Comment these out to avoid errors
+// ====================================================================
+
+// TEST 6: REDECLARATION ERROR
+// let number1 = 25;  // ERROR: Already declared
+
+// TEST 7: UNDECLARED VARIABLE ERROR  
+// unknown_var = 100;  // ERROR: Not declared
+
+// TEST 8: RESERVED KEYWORD ERROR
+// let var = 10;  // ERROR: Use 'let' instead
+
+// ====================================================================
+// WARNING TESTS - Comment these out to avoid warnings
+// ====================================================================
+
+// TEST 9: UNUSED VARIABLE WARNING
+// let unused = 999;  // WARNING: Never used
+
+// ====================================================================
+// SYNTAX ERROR TESTS - Comment these out to avoid syntax errors
+// ====================================================================
+
+// TEST 10: INVALID SYNTAX
+// let 123invalid = 5;      // ERROR: Starts with digit
+// console.log('missing);   // ERROR: Missing quote
+
+// ====================================================================
+// TEST 11: FINAL WORKING TEST (Should work)
+// ====================================================================
+let final_test = 42;
+if (final_test > 40) {
+    console.log('Final test passed!');
+}
+
+console.log('Test suite complete');
