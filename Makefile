@@ -13,12 +13,15 @@ build/lex.yy.c: scanner.l | build
 build/grammar.tab.c: grammar.y | build
 	@echo "Generating parser..."
 	bison -d -o build/grammar.tab.c grammar.y
-	@move grammar.tab.h build\ 2>NUL || echo Header moved
+	@if exist grammar.tab.h move grammar.tab.h build\
 
 build output:
-	@mkdir $@ 2>NUL || echo Directory exists
+	@if not exist build mkdir build
+	@if not exist output mkdir output
 
 clean:
-	@rmdir /s /q build output 2>NUL || echo Already clean
+	@if exist build rmdir /s /q build
+	@if exist output rmdir /s /q output
+	@if exist NUL del NUL
 
 .PHONY: all clean
