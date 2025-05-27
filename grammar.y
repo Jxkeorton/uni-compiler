@@ -2,25 +2,55 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+#include <limits.h>
 
 extern int yylex();
 void yyerror(const char *s);
+
+// Add current_line variable
+int current_line = 1;
+
+// Error type constants
+#define ERROR_MEMORY 1
+#define ERROR_REDECLARATION 2
+#define ERROR_UNDECLARED_VAR 3
+#define ERROR_SEMANTIC 4
+#define ERROR_SYNTAX 5
+#define ERROR_FILE_IO 6
 
 // Symbol table structure
 typedef struct Symbol {
     char* name;
     int value;
     int is_initialized;
+    int line_declared;        // Line where variable was declared
+    int times_used;          // Usage counter
+    int is_assigned;         // Has been assigned after declaration
     struct Symbol* next;
 } Symbol;
 
 // Symbol table functions
 Symbol* symbol_table = NULL;
-void add_symbol(char* name, int value, int is_initialized);
-Symbol* lookup_symbol(char* name);
-int is_declared(char* name);
-void free_symbol_table();
-void print_symbol_table();
+int symbol_count = 0;
+
+// Error reporting functions
+void report_error(int error_type, const char* format, ...);
+void report_warning(const char* format, ...);
+
+// Enhanced symbol table functions
+int add_symbol_safe(char* name, int value, int is_initialized);
+Symbol* lookup_symbol_safe(char* name);
+int is_declared_safe(char* name);
+int mark_symbol_used(char* name);
+int mark_symbol_assigned(char* name);
+void validate_symbol_usage();
+void free_symbol_table_safe();
+void print_symbol_table_enhanced();
+
+// Memory safety helpers
+char* safe_strdup(const char* str);
+int validate_identifier(const char* name);
 
 // Simplified AST node types
 typedef enum { 
@@ -71,10 +101,27 @@ ASTNode* root = NULL;
 /* Program Structure */
 program: statement_list { root = $1; $$ = $1; }
 
-/* Statements */
+/* Statements with Safe Symbol Table Integration */
 statement:
-      LET IDENTIFIER '=' expression ';'     { $$ = createASTNode(NODE_VARIABLE_DECL, strdup($2), 0, $4, NULL); }
-    | IDENTIFIER '=' expression ';'         { $$ = createASTNode(NODE_ASSIGNMENT, strdup($1), 0, $3, NULL); }
+      LET IDENTIFIER '=' expression ';'     { 
+          // Safe symbol table integration
+          if (!add_symbol_safe($2, 
+                              ($4 && $4->type == NODE_LITERAL) ? $4->value : 0,
+                              ($4 && $4->type == NODE_LITERAL) ? 1 : 0)) {
+              YYERROR;
+          }
+          $$ = createASTNode(NODE_VARIABLE_DECL, strdup($2), 0, $4, NULL); 
+      }
+    | IDENTIFIER '=' expression ';'         { 
+          // Check if variable exists and mark as assigned
+          if (!is_declared_safe($1)) {
+              YYERROR;
+          }
+          if (!mark_symbol_assigned($1)) {
+              YYERROR;
+          }
+          $$ = createASTNode(NODE_ASSIGNMENT, strdup($1), 0, $3, NULL); 
+      }
     | console_log ';'                       { $$ = $1; }
     | if_statement                          { $$ = $1; }
     ;
@@ -87,9 +134,19 @@ statement_list:
 /* Console.log */
 console_log:
     CONSOLE '.' LOG '(' STRING ')'                          { $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, NULL, NULL); }
-  | CONSOLE '.' LOG '(' STRING ',' IDENTIFIER ')'           { $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, createASTNode(NODE_VARIABLE, strdup($7), 0, NULL, NULL), NULL); }
+  | CONSOLE '.' LOG '(' STRING ',' IDENTIFIER ')'           { 
+      if (!mark_symbol_used($7)) {
+          YYERROR;
+      }
+      $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, createASTNode(NODE_VARIABLE, strdup($7), 0, NULL, NULL), NULL); 
+  }
   | CONSOLE '.' LOG '(' STRING ',' INTEGER ')'              { $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, createASTNode(NODE_LITERAL, NULL, $7, NULL, NULL), NULL); }
-  | CONSOLE '.' LOG '(' IDENTIFIER ')'                      { $$ = createASTNode(NODE_CONSOLE_LOG, NULL, 0, createASTNode(NODE_VARIABLE, strdup($5), 0, NULL, NULL), NULL); }
+  | CONSOLE '.' LOG '(' IDENTIFIER ')'                      { 
+      if (!mark_symbol_used($5)) {
+          YYERROR;
+      }
+      $$ = createASTNode(NODE_CONSOLE_LOG, NULL, 0, createASTNode(NODE_VARIABLE, strdup($5), 0, NULL, NULL), NULL); 
+  }
     ;
 
 /* Expressions */
@@ -106,7 +163,13 @@ expression:
 
 arithmetic_expr:
       INTEGER                               { $$ = createASTNode(NODE_LITERAL, NULL, $1, NULL, NULL); }
-    | IDENTIFIER                            { $$ = createASTNode(NODE_VARIABLE, strdup($1), 0, NULL, NULL); }
+    | IDENTIFIER                            { 
+          // Safe variable usage checking
+          if (!mark_symbol_used($1)) {
+              YYERROR;
+          }
+          $$ = createASTNode(NODE_VARIABLE, strdup($1), 0, NULL, NULL); 
+      }
     | arithmetic_expr '+' arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("+"), 0, $1, $3); }
     | arithmetic_expr '-' arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("-"), 0, $1, $3); }
     | arithmetic_expr '*' arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("*"), 0, $1, $3); }
@@ -121,11 +184,313 @@ if_statement:
 
 %%
 
-/* C Code Section */
+/* C Code Section - Implementation of all functions */
+
+// Error reporting functions
+void report_error(int error_type, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    
+    const char* error_types[] = {
+        "Info", 
+        "Memory Error", 
+        "Redeclaration Error", 
+        "Undeclared Variable Error",
+        "Semantic Error",
+        "Syntax Error",
+        "File I/O Error"
+    };
+    
+    fprintf(stderr, "%s at line %d: ", 
+            (error_type < 7) ? error_types[error_type] : "Error", 
+            current_line);
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\n");
+    
+    va_end(args);
+}
+
+void report_warning(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    
+    fprintf(stderr, "Warning at line %d: ", current_line);
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\n");
+    
+    va_end(args);
+}
+
+// Memory safety helpers
+char* safe_strdup(const char* str) {
+    if (!str) {
+        report_error(ERROR_MEMORY, "Attempting to duplicate NULL string");
+        return NULL;
+    }
+    
+    char* dup = strdup(str);
+    if (!dup) {
+        report_error(ERROR_MEMORY, "Memory allocation failed for string duplication");
+        return NULL;
+    }
+    
+    return dup;
+}
+
+int validate_identifier(const char* name) {
+    if (!name) {
+        report_error(ERROR_SEMANTIC, "Identifier name is NULL");
+        return 0;
+    }
+    
+    if (strlen(name) == 0) {
+        report_error(ERROR_SEMANTIC, "Identifier name is empty");
+        return 0;
+    }
+    
+    if (strlen(name) > 255) {
+        report_warning("Identifier '%s' is very long (%zu characters)", name, strlen(name));
+    }
+    
+    // Check if it starts with a letter or underscore
+    if (!((name[0] >= 'a' && name[0] <= 'z') || 
+          (name[0] >= 'A' && name[0] <= 'Z') || 
+          name[0] == '_')) {
+        report_error(ERROR_SEMANTIC, "Invalid identifier '%s': must start with letter or underscore", name);
+        return 0;
+    }
+    
+    // Check for reserved keywords
+    const char* reserved[] = {"var", "function", "const", "class", "return", "while", "for", NULL};
+    for (int i = 0; reserved[i]; i++) {
+        if (strcmp(name, reserved[i]) == 0) {
+            report_error(ERROR_SEMANTIC, "'%s' is a reserved keyword and cannot be used as an identifier", name);
+            return 0;
+        }
+    }
+    
+    return 1;
+}
+
+// Enhanced symbol table functions
+int add_symbol_safe(char* name, int value, int is_initialized) {
+    if (!validate_identifier(name)) {
+        return 0;
+    }
+    
+    if (is_declared_safe(name)) {
+        Symbol* existing = lookup_symbol_safe(name);
+        if (existing) {
+            report_error(ERROR_REDECLARATION, "Variable '%s' is already declared at line %d", 
+                        name, existing->line_declared);
+        } else {
+            report_error(ERROR_REDECLARATION, "Variable '%s' is already declared", name);
+        }
+        return 0;
+    }
+    
+    Symbol* new_symbol = (Symbol*)malloc(sizeof(Symbol));
+    if (!new_symbol) {
+        report_error(ERROR_MEMORY, "Memory allocation failed for symbol '%s'", name);
+        return 0;
+    }
+    
+    new_symbol->name = safe_strdup(name);
+    if (!new_symbol->name) {
+        free(new_symbol);
+        return 0;
+    }
+    
+    new_symbol->value = value;
+    new_symbol->is_initialized = is_initialized;
+    new_symbol->line_declared = current_line;
+    new_symbol->times_used = 0;
+    new_symbol->is_assigned = is_initialized;
+    new_symbol->next = symbol_table;
+    
+    symbol_table = new_symbol;
+    symbol_count++;
+    
+    printf("✓ Added symbol: %s = %d (initialized: %s) at line %d\n", 
+           name, value, is_initialized ? "yes" : "no", current_line);
+    
+    return 1;
+}
+
+Symbol* lookup_symbol_safe(char* name) {
+    if (!validate_identifier(name)) {
+        return NULL;
+    }
+    
+    Symbol* current = symbol_table;
+    while (current) {
+        if (strcmp(current->name, name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    
+    return NULL;
+}
+
+int is_declared_safe(char* name) {
+    if (!name) {
+        report_error(ERROR_SEMANTIC, "Checking declaration of NULL identifier");
+        return 0;
+    }
+    
+    return lookup_symbol_safe(name) != NULL;
+}
+
+int mark_symbol_used(char* name) {
+    if (!validate_identifier(name)) {
+        return 0;
+    }
+    
+    Symbol* symbol = lookup_symbol_safe(name);
+    if (!symbol) {
+        report_error(ERROR_UNDECLARED_VAR, "Variable '%s' is not declared", name);
+        return 0;
+    }
+    
+    symbol->times_used++;
+    
+    if (!symbol->is_initialized && !symbol->is_assigned) {
+        report_warning("Variable '%s' may be used before initialization (declared at line %d)", 
+                      name, symbol->line_declared);
+    }
+    
+    return 1;
+}
+
+int mark_symbol_assigned(char* name) {
+    if (!validate_identifier(name)) {
+        return 0;
+    }
+    
+    Symbol* symbol = lookup_symbol_safe(name);
+    if (!symbol) {
+        report_error(ERROR_UNDECLARED_VAR, "Cannot assign to undeclared variable '%s'", name);
+        return 0;
+    }
+    
+    symbol->is_assigned = 1;
+    symbol->is_initialized = 1;
+    
+    return 1;
+}
+
+void validate_symbol_usage() {
+    printf("\n=== Symbol Usage Validation ===\n");
+    
+    Symbol* current = symbol_table;
+    int unused_count = 0;
+    int uninitialized_count = 0;
+    
+    while (current) {
+        if (current->times_used == 0) {
+            report_warning("Variable '%s' declared at line %d is never used", 
+                          current->name, current->line_declared);
+            unused_count++;
+        }
+        
+        if (!current->is_initialized) {
+            report_warning("Variable '%s' declared at line %d is never initialized", 
+                          current->name, current->line_declared);
+            uninitialized_count++;
+        }
+        
+        current = current->next;
+    }
+    
+    printf("Unused variables: %d\n", unused_count);
+    printf("Uninitialized variables: %d\n", uninitialized_count);
+    printf("Total symbols: %d\n", symbol_count);
+    printf("==============================\n\n");
+}
+
+void print_symbol_table_enhanced() {
+    printf("\n=== Enhanced Symbol Table ===\n");
+    
+    if (!symbol_table) {
+        printf("(empty)\n");
+        printf("============================\n\n");
+        return;
+    }
+    
+    printf("%-15s %-8s %-12s %-8s %-8s %-8s\n", 
+           "Name", "Value", "Initialized", "Line", "Used", "Assigned");
+    printf("%-15s %-8s %-12s %-8s %-8s %-8s\n", 
+           "----", "-----", "-----------", "----", "----", "--------");
+    
+    Symbol* current = symbol_table;
+    while (current) {
+        printf("%-15s %-8d %-12s %-8d %-8d %-8s\n", 
+               current->name, 
+               current->value,
+               current->is_initialized ? "yes" : "no",
+               current->line_declared,
+               current->times_used,
+               current->is_assigned ? "yes" : "no");
+        current = current->next;
+    }
+    
+    printf("============================\n");
+    printf("Total symbols: %d\n\n", symbol_count);
+}
+
+void free_symbol_table_safe() {
+    Symbol* current = symbol_table;
+    int freed_count = 0;
+    
+    while (current) {
+        Symbol* temp = current;
+        current = current->next;
+        
+        if (temp->name) {
+            free(temp->name);
+        }
+        
+        free(temp);
+        freed_count++;
+    }
+    
+    symbol_table = NULL;
+    symbol_count = 0;
+    
+    printf("✓ Freed %d symbols from symbol table\n", freed_count);
+}
+
+void get_symbol_statistics() {
+    int total = 0;
+    int initialized = 0;
+    int used = 0;
+    int assigned = 0;
+    
+    Symbol* current = symbol_table;
+    while (current) {
+        total++;
+        if (current->is_initialized) initialized++;
+        if (current->times_used > 0) used++;
+        if (current->is_assigned) assigned++;
+        current = current->next;
+    }
+    
+    printf("\n=== Symbol Statistics ===\n");
+    printf("Total symbols: %d\n", total);
+    printf("Initialized: %d (%.1f%%)\n", initialized, total ? (100.0 * initialized / total) : 0);
+    printf("Used: %d (%.1f%%)\n", used, total ? (100.0 * used / total) : 0);
+    printf("Assigned: %d (%.1f%%)\n", assigned, total ? (100.0 * assigned / total) : 0);
+    printf("========================\n\n");
+}
 
 // Function to create AST nodes
 ASTNode* createASTNode(NodeType type, char* identifier, int value, ASTNode* left, ASTNode* right) {
     ASTNode* newNode = (ASTNode*)malloc(sizeof(ASTNode));
+    if (!newNode) {
+        report_error(ERROR_MEMORY, "Failed to allocate memory for AST node");
+        return NULL;
+    }
     newNode->type = type;
     newNode->identifier = identifier;
     newNode->value = value;
@@ -135,9 +500,10 @@ ASTNode* createASTNode(NodeType type, char* identifier, int value, ASTNode* left
 }
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Parser error: %s\n", s);
+    report_error(ERROR_SYNTAX, "%s", s);
 }
 
+// Updated generateCode function
 void generateCode(ASTNode* node, FILE* output) {
     if (!node) return;
 
@@ -152,31 +518,17 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_VARIABLE_DECL:
-            if (is_declared(node->identifier)) {
-                fprintf(stderr, "Error: Variable '%s' already declared\n", node->identifier);
-                return;
-            }
-            // Add to symbol table
-            if (node->left && node->left->type == NODE_LITERAL) {
-                add_symbol(node->identifier, node->left->value, 1);
-            } else {
-                add_symbol(node->identifier, 0, 0); // Unknown value at compile time
-            }
+            // Symbol was already added safely during parsing
             fprintf(output, "    int %s = ", node->identifier);
             generateCode(node->left, output);
             fprintf(output, ";\n");
             break;
             
         case NODE_ASSIGNMENT:
-            if (!is_declared(node->identifier)) {
-                fprintf(stderr, "Error: Variable '%s' not declared\n", node->identifier);
-                return;
-            }
-            // Update symbol table value if it's a literal
-            Symbol* sym = lookup_symbol(node->identifier);
+            // Variable existence was already checked during parsing
+            Symbol* sym = lookup_symbol_safe(node->identifier);
             if (sym && node->left && node->left->type == NODE_LITERAL) {
                 sym->value = node->left->value;
-                sym->is_initialized = 1;
             }
             fprintf(output, "    %s = ", node->identifier);
             generateCode(node->left, output);
@@ -186,7 +538,6 @@ void generateCode(ASTNode* node, FILE* output) {
         case NODE_CONSOLE_LOG:
             fprintf(output, "    printf(");
             if (node->identifier) {
-                // String with possible variable
                 char* str = node->identifier;
                 fprintf(output, "\"");
                 for (int i = 1; i < strlen(str) - 1; i++) {
@@ -202,7 +553,6 @@ void generateCode(ASTNode* node, FILE* output) {
                     generateCode(node->left, output);
                 }
             } else if (node->left) {
-                // Just a variable or number
                 if (node->left->type == NODE_VARIABLE) {
                     fprintf(output, "\"%%d\\n\", ");
                     generateCode(node->left, output);
@@ -230,10 +580,6 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_VARIABLE:
-            if (!is_declared(node->identifier)) {
-                fprintf(stderr, "Error: Variable '%s' not declared\n", node->identifier);
-                return;
-            }
             fprintf(output, "%s", node->identifier);
             break;
             
@@ -243,12 +589,10 @@ void generateCode(ASTNode* node, FILE* output) {
             fprintf(output, ") {\n");
             if (node->right) {
                 if (node->right->type == NODE_IF && node->right->value == 1) {
-                    // This is if-else
                     generateCode(node->right->left, output);
                     fprintf(output, "    } else {\n");
                     generateCode(node->right->right, output);
                 } else {
-                    // Simple if
                     generateCode(node->right, output);
                 }
             }
@@ -268,71 +612,32 @@ void freeAST(ASTNode* node) {
     free(node);
 }
 
-// Symbol table implementation
-void add_symbol(char* name, int value, int is_initialized) {
-    Symbol* new_symbol = (Symbol*)malloc(sizeof(Symbol));
-    new_symbol->name = strdup(name);
-    new_symbol->value = value;
-    new_symbol->is_initialized = is_initialized;
-    new_symbol->next = symbol_table;
-    symbol_table = new_symbol;
-    printf("Added symbol: %s = %d (initialized: %s)\n", name, value, is_initialized ? "yes" : "no");
-}
-
-Symbol* lookup_symbol(char* name) {
-    Symbol* current = symbol_table;
-    while (current) {
-        if (strcmp(current->name, name) == 0) {
-            return current;
-        }
-        current = current->next;
-    }
-    return NULL;
-}
-
-int is_declared(char* name) {
-    return lookup_symbol(name) != NULL;
-}
-
-void free_symbol_table() {
-    Symbol* current = symbol_table;
-    while (current) {
-        Symbol* temp = current;
-        current = current->next;
-        free(temp->name);
-        free(temp);
-    }
-    symbol_table = NULL;
-}
-
-void print_symbol_table() {
-    printf("\n=== Symbol Table ===\n");
-    Symbol* current = symbol_table;
-    if (!current) {
-        printf("(empty)\n");
-        return;
-    }
-    while (current) {
-        printf("Variable: %s, Value: %d, Initialized: %s\n", 
-               current->name, current->value, current->is_initialized ? "yes" : "no");
-        current = current->next;
-    }
-    printf("==================\n\n");
-}
-
+// Updated main function
 int main() {
     extern FILE *yyin;
+    
+    // Initialize current_line
+    current_line = 1;
+    
     yyin = fopen("input.txt", "r");
     if (!yyin) {
         fprintf(stderr, "Error: Could not open input.txt\n");
         return 1;
     }
     
+    printf("Starting compilation...\n");
+    
     if (yyparse() == 0) {
-        printf("Parsing successful!\n");
+        printf("✓ Parsing successful!\n");
         
-        // Print symbol table for debugging
-        print_symbol_table();
+        // Enhanced symbol table reporting
+        print_symbol_table_enhanced();
+        
+        // Validate symbol usage patterns
+        validate_symbol_usage();
+        
+        // Get statistics
+        get_symbol_statistics();
         
         // Generate C code
         FILE* output = fopen("output.c", "w");
@@ -348,14 +653,15 @@ int main() {
             fprintf(output, "}\n");
             
             fclose(output);
-            printf("C code generated in output.c\n");
+            printf("✓ C code generated in output.c\n");
         }
         
         freeAST(root);
-        free_symbol_table();
+        free_symbol_table_safe();
     } else {
-        fprintf(stderr, "Parsing failed!\n");
-        free_symbol_table();
+        fprintf(stderr, "✗ Parsing failed!\n");
+        print_symbol_table_enhanced();
+        free_symbol_table_safe();
     }
     
     fclose(yyin);
