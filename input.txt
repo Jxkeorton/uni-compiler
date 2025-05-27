@@ -1,31 +1,51 @@
-// this code is based on javascript
-const alphabet = ['A','B','C'];
+// Simplified JavaScript subset with core features
+// This demonstrates: numerical variables, basic arithmetic, if statements, print, and comments
 
-console.log('Starting cipher program');
+// Numerical variables
+let number1 = 10;
+let number2 = 5;
+let result = 0;
 
-function cipher(text, key) {
-    let result = 0;
-    console.log('Processing cipher with key:', key);
-    
-    for(let i = 0; i < 10; i++) {
-        if(i > 5) {
-            result = i + key;
-            console.log('Large index result:', result);
-        } else {
-            result = i * 2;
-            console.log('Small index result:', result);
-        }
-    }
-    return result;
+// Print starting message
+console.log('Starting calculation program');
+
+// Basic arithmetic operations
+result = number1 + number2;
+console.log('Addition result:', result);
+
+result = number1 - number2;
+console.log('Subtraction result:', result);
+
+result = number1 * number2;
+console.log('Multiplication result:', result);
+
+// If statements with numerical comparisons
+if (number1 > number2) {
+    console.log('First number is larger');
+    result = number1;
+} else {
+    console.log('Second number is larger or equal');
+    result = number2;
 }
 
-const text = cipher('hello', 4);
-console.log('Final result:', text);
+// Print the final result
+console.log('Final result:', result);
 
-if(text === 13) {
-    const message = 'Success';
-    console.log(message);
+// Another if statement example
+let score = 85;
+if (score > 90) {
+    console.log('Grade: A');
 } else {
-    const message = 'Failed';
-    console.log(message);
+    console.log('Grade: B or lower');
+}
+
+// Arithmetic with multiple operations
+let calculation = 20 + 15 - 5;
+console.log('Complex calculation:', calculation);
+
+// Final status check
+if (calculation === 30) {
+    console.log('Calculation is correct');
+} else {
+    console.log('Calculation needs review');
 }

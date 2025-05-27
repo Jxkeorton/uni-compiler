@@ -9,13 +9,9 @@ void writetofile(char *ty, char *data);
 
 %%
 
-"function"      { writetofile("FUNCTION", yytext); return FUNCTION; }
-"const"         { writetofile("CONST", yytext); return CONST; }
 "let"           { writetofile("LET", yytext); return LET; }
 "if"            { writetofile("IF", yytext); return IF; }
 "else"          { writetofile("ELSE", yytext); return ELSE; }
-"for"           { writetofile("FOR", yytext); return FOR; }
-"return"        { writetofile("RETURN", yytext); return RETURN; }
 "console"       { writetofile("CONSOLE", yytext); return CONSOLE; }
 "log"           { writetofile("LOG", yytext); return LOG; }
 
@@ -26,7 +22,6 @@ void writetofile(char *ty, char *data);
 ">="            { writetofile("GE", yytext); return GE; }
 "<"             { writetofile("LT", yytext); return '<'; }
 ">"             { writetofile("GT", yytext); return '>'; }
-"++"            { writetofile("PLUSONE", yytext); return PLUSONE; }
 
 [a-zA-Z_][a-zA-Z0-9_]* { 
     writetofile("IDENTIFIER", yytext); 
@@ -40,21 +35,18 @@ void writetofile(char *ty, char *data);
     return INTEGER; 
 }
 
-"%"             { writetofile("MOD", yytext); return '%'; }
 "+"             { writetofile("PLUS", yytext); return '+'; }
 "-"             { writetofile("MINUS", yytext); return '-'; }
 "*"             { writetofile("MUL", yytext); return '*'; }
-"/"             { writetofile("DIV", yytext); return '/'; }
 "="             { writetofile("ASSIGN", yytext); return '='; }
 ";"             { writetofile("SEMICOLON", yytext); return ';'; }
 "{"             { writetofile("LBRACE", yytext); return '{'; }
 "}"             { writetofile("RBRACE", yytext); return '}'; }
-"["             { writetofile("LSQBRACKET", yytext); return '['; }
-"]"             { writetofile("RSQBRACKET", yytext); return ']'; }
 "("             { writetofile("LPAREN", yytext); return '('; }
 ")"             { writetofile("RPAREN", yytext); return ')'; }
 ","             { writetofile("COMMA", yytext); return ','; }
 "."             { writetofile("DOT", yytext); return '.'; }
+":"             { writetofile("COLON", yytext); return ':'; }
 
 \'([^\'\\]|\\.)*\'  { 
     writetofile("STRING", yytext); 
@@ -70,7 +62,6 @@ void writetofile(char *ty, char *data);
 
 [ \t\n\r]+      { /* skip whitespace */ }
 "//".*          { /* Ignore single-line comments */ }
-"/*"([^*]|\*+[^*/])*\*+"/"  { /* Ignore multi-line comments */ }
 
 .               { 
     printf("Unknown character: '%c' (ASCII: %d)\n", yytext[0], yytext[0]); 

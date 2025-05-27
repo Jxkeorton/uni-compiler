@@ -1,0 +1,4 @@
+flex scanner.l
+bison -d grammar.y
+gcc -o parser lex.yy.c grammar.tab.c -lfl
+./parser
