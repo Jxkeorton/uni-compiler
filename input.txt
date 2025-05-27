@@ -1,4 +1,3 @@
-// Simplified JavaScript subset with core features
 // This demonstrates: numerical variables, basic arithmetic, if statements, print, and comments
 
 // Numerical variables

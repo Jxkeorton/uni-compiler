@@ -640,7 +640,7 @@ int main() {
         get_symbol_statistics();
         
         // Generate C code
-        FILE* output = fopen("output.c", "w");
+        FILE* output = fopen("output/output.c", "w");
         if (output) {
             fprintf(output, "#include <stdio.h>\n");
             fprintf(output, "#include <stdlib.h>\n\n");

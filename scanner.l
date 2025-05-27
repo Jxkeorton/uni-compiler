@@ -129,8 +129,8 @@ int yywrap() {
     return 1;
 }
 
-void writetofile(char *ty, char *data) {
-    FILE *fptr = fopen("token.txt", "a");
+void writetofile(char *ty, char *data) {    
+    FILE *fptr = fopen("output/token.txt", "a");
     if (fptr) {
         fprintf(fptr, "<%s,%s>\n", ty, data);
         fclose(fptr);
