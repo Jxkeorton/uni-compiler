@@ -8,7 +8,6 @@
 extern int yylex();
 void yyerror(const char *s);
 
-// Add current_line variable
 int current_line = 1;
 
 // Error type constants
@@ -24,9 +23,9 @@ typedef struct Symbol {
     char* name;
     int value;
     int is_initialized;
-    int line_declared;        // Line where variable was declared
-    int times_used;          // Usage counter
-    int is_assigned;         // Has been assigned after declaration
+    int line_declared;        
+    int times_used;          
+    int is_assigned;         
     struct Symbol* next;
 } Symbol;
 
@@ -38,7 +37,7 @@ int symbol_count = 0;
 void report_error(int error_type, const char* format, ...);
 void report_warning(const char* format, ...);
 
-// Enhanced symbol table functions
+// symbol table functions
 int add_symbol_safe(char* name, int value, int is_initialized);
 Symbol* lookup_symbol_safe(char* name);
 int is_declared_safe(char* name);
@@ -52,7 +51,7 @@ void print_symbol_table_enhanced();
 char* safe_strdup(const char* str);
 int validate_identifier(const char* name);
 
-// Simplified AST node types
+// AST node types
 typedef enum { 
     NODE_PROGRAM, NODE_VARIABLE_DECL, NODE_ASSIGNMENT, NODE_BINARY_OP, 
     NODE_IF, NODE_CONSOLE_LOG, NODE_LITERAL, NODE_VARIABLE,
@@ -67,7 +66,6 @@ typedef struct ASTNode {
     int value;
 } ASTNode;
 
-// Function prototypes
 ASTNode* createASTNode(NodeType type, char* identifier, int value, ASTNode* left, ASTNode* right);
 void generateCode(ASTNode* node, FILE* output);
 void freeAST(ASTNode* node);
@@ -104,7 +102,6 @@ program: statement_list { root = $1; $$ = $1; }
 /* Statements with Safe Symbol Table Integration */
 statement:
       LET IDENTIFIER '=' expression ';'     { 
-          // Safe symbol table integration
           if (!add_symbol_safe($2, 
                               ($4 && $4->type == NODE_LITERAL) ? $4->value : 0,
                               ($4 && $4->type == NODE_LITERAL) ? 1 : 0)) {

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <limits.h>
 
-// Error type constants (must match grammar.y)
+// Error type constants
 #define ERROR_MEMORY 1
 #define ERROR_REDECLARATION 2
 #define ERROR_UNDECLARED_VAR 3
@@ -40,15 +40,6 @@ void writetofile(char *ty, char *data);
 ">"             { writetofile("GT", yytext); return '>'; }
 
 [a-zA-Z_][a-zA-Z0-9_]* { 
-    // Check for reserved words that might be typos
-    if (strcmp(yytext, "var") == 0) {
-        report_warning("Found 'var' - did you mean 'let'?");
-    } else if (strcmp(yytext, "function") == 0) {
-        report_warning("'function' keyword not supported in this subset");
-    } else if (strcmp(yytext, "const") == 0) {
-        report_warning("'const' keyword not supported - use 'let' instead");
-    }
-    
     writetofile("IDENTIFIER", yytext); 
     yylval.identifier = strdup(yytext);
     if (!yylval.identifier) {
