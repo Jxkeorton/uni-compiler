@@ -8,10 +8,6 @@ let result = 0;
 // Print starting message
 console.log('Starting calculation program');
 
-// Basic arithmetic
-result = number1 + number2;
-console.log('Addition result:', result);
-
 // Arithmetic
 let calculation = 20 + 10;
 console.log('Calculation:', calculation);
