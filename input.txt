@@ -1,20 +1,114 @@
-// This demonstrates: numerical variables, basic arithmetic, if statements, print, and comments
+// ====================================================================
+// TEST SUITE FOR JAVASCRIPT COMPILER
+// ====================================================================
+// Instructions: Comment out sections you don't want to test
+// Note: Error tests should be run individually as they stop compilation
+// ====================================================================
 
-// Numerical variables
-let number1 = 10;
-let number2 = 5;
-let result = 0;
+// ====================================================================
+// TEST 1: BASIC VARIABLE DECLARATIONS (Should work)
+// ====================================================================
+// let number1 = 10;
+// let number2 = 5;
+// let result = 0;
+// console.log('Test 1: Variables declared successfully');
 
-// Print starting message
-console.log('Starting calculation program');
+// ====================================================================
+// TEST 2: ARITHMETIC OPERATIONS (Should work)
+// ====================================================================
+// result = number1 + number2;
+// console.log(result);
 
-// Arithmetic
-let calculation = 20 + 10;
-console.log(calculation);
+// result = number1 - number2;
+// console.log(result);
 
-// Final check
-if (calculation === 30) {
-    console.log('Calculation is correct');
-} else {
-    console.log('Calculation needs review');
-}
+// result = number1 * number2;
+// console.log(result);
+
+// ====================================================================
+// TEST 3: IF STATEMENTS WITH COMPARISONS (Should work)
+// ====================================================================
+// if (number1 > number2) {
+//     console.log('Number1 is larger');
+// } else {
+//     console.log('Number2 is larger or equal');
+// }
+
+// if (number1 === 10) {
+//     console.log('Number1 equals 10');
+// }
+
+// ====================================================================
+// TEST 4: COMPLEX EXPRESSIONS WITH PARENTHESES (Should work)
+// ====================================================================
+// let calculation = 20 + 15;
+// console.log(calculation);
+
+// let parentheses_calc = (number1 + number2) * 2;
+// console.log(parentheses_calc);
+
+// ====================================================================
+// TEST 5: NESTED IF-ELSE STATEMENTS (Should work)
+// ====================================================================
+// let score = 85;
+// if (score > 90) {
+//     console.log('Grade: A');
+// } else {
+//     if (score > 80) {
+//         console.log('Grade: B');
+//     } else {
+//         console.log('Grade: C or below');
+//     }
+// }
+
+// ====================================================================
+// TEST 6: STRING LITERALS AND CONSOLE OUTPUT (Should work)
+// ====================================================================
+// console.log('This is a string test');
+// console.log('Multiple arguments test');
+// 
+// ====================================================================
+// TEST 7: VARIABLE REDECLARATION ERROR (Should produce error)
+// Comment out to avoid stopping compilation
+// ====================================================================
+// let number1 = 2
+// let number1 = 25;  // ERROR: Variable 'number1' is already declared
+
+// ====================================================================
+// TEST 8: UNDECLARED VARIABLE ERROR (Should produce error)
+// Comment out to avoid stopping compilation
+// ====================================================================
+// unknown_variable = 100;  // ERROR: Variable 'unknown_variable' is not declared
+
+// ====================================================================
+// TEST 9: UNUSED VARIABLE WARNING (Should produce warning)
+// Comment out to avoid warnings
+// ====================================================================
+// let unused_var = 999;  // WARNING: Variable declared but never used
+
+// ====================================================================
+// TEST 11: SYNTAX ERROR TEST
+// Comment out to avoid stopping compilation
+// ====================================================================
+// let 123invalid = 5;      // ERROR: Invalid identifier starting with digit
+// let valid_name =;        // ERROR: Missing expression after assignment
+// console.log('missing quote);  // ERROR: Unterminated string literal
+// if number > 5 {          // ERROR: Missing parentheses around condition
+//     console.log('test');
+// }
+
+// ====================================================================
+// TEST 10: COMPREHENSIVE INTEGRATION TEST (Should work)
+// ====================================================================
+// let final_number = 42;
+// let comparison_value = 40;
+
+// if (final_number > comparison_value) {
+//    console.log('Final test passed!');
+//    let success_indicator = 1;
+//    console.log(success_indicator);
+// } else {
+//    console.log('Final test failed');
+// }
+
+console.log('Test suite execution complete');
