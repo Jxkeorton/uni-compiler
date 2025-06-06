@@ -154,7 +154,6 @@ console_log:
 expression:
       arithmetic_expr                       { $$ = $1; }
     | expression EQ arithmetic_expr         { $$ = createASTNode(NODE_BINARY_OP, strdup("=="), 0, $1, $3); }
-    | expression STRICTEQ arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("==="), 0, $1, $3); }
     | expression '<' arithmetic_expr        { $$ = createASTNode(NODE_BINARY_OP, strdup("<"), 0, $1, $3); }
     | expression '>' arithmetic_expr        { $$ = createASTNode(NODE_BINARY_OP, strdup(">"), 0, $1, $3); }
     ;
