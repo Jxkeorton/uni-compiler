@@ -1,5 +1,5 @@
 // ====================================================================
-// UPDATED TEST SUITE FOR JAVASCRIPT COMPILER
+// TEST SUITE FOR JAVASCRIPT COMPILER
 // ====================================================================
 // Instructions: Comment out sections you don't want to test
 // Note: Error tests should be run individually as they stop compilation
