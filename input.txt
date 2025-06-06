@@ -8,41 +8,15 @@ let result = 0;
 // Print starting message
 console.log('Starting calculation program');
 
-// Basic arithmetic operations
+// Basic arithmetic
 result = number1 + number2;
 console.log('Addition result:', result);
 
-result = number1 - number2;
-console.log('Subtraction result:', result);
+// Arithmetic
+let calculation = 20 + 10;
+console.log('Calculation:', calculation);
 
-result = number1 * number2;
-console.log('Multiplication result:', result);
-
-// If statements with numerical comparisons
-if (number1 > number2) {
-    console.log('First number is larger');
-    result = number1;
-} else {
-    console.log('Second number is larger or equal');
-    result = number2;
-}
-
-// Print the final result
-console.log('Final result:', result);
-
-// Another if statement example
-let score = 85;
-if (score > 90) {
-    console.log('Grade: A');
-} else {
-    console.log('Grade: B or lower');
-}
-
-// Arithmetic with multiple operations
-let calculation = 20 + 15 - 5;
-console.log('Complex calculation:', calculation);
-
-// Final status check
+// Final check
 if (calculation === 30) {
     console.log('Calculation is correct');
 } else {
