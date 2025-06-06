@@ -82,7 +82,7 @@ ASTNode* root = NULL;
 %token <identifier> IDENTIFIER
 %token <identifier> STRING
 %token LET IF ELSE
-%token EQ NE LE GE STRICTEQ
+%token EQ
 %token CONSOLE LOG
 
 %union {
@@ -94,7 +94,7 @@ ASTNode* root = NULL;
 %type <ast_node> program statement expression console_log statement_list arithmetic_expr if_statement
 
 %right '='
-%left EQ STRICTEQ NE '<' '>' LE GE
+%left EQ '<' '>'
 %left '+' '-'
 %left '*'
 
@@ -155,11 +155,8 @@ expression:
       arithmetic_expr                       { $$ = $1; }
     | expression EQ arithmetic_expr         { $$ = createASTNode(NODE_BINARY_OP, strdup("=="), 0, $1, $3); }
     | expression STRICTEQ arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("==="), 0, $1, $3); }
-    | expression NE arithmetic_expr         { $$ = createASTNode(NODE_BINARY_OP, strdup("!="), 0, $1, $3); }
     | expression '<' arithmetic_expr        { $$ = createASTNode(NODE_BINARY_OP, strdup("<"), 0, $1, $3); }
     | expression '>' arithmetic_expr        { $$ = createASTNode(NODE_BINARY_OP, strdup(">"), 0, $1, $3); }
-    | expression LE arithmetic_expr         { $$ = createASTNode(NODE_BINARY_OP, strdup("<="), 0, $1, $3); }
-    | expression GE arithmetic_expr         { $$ = createASTNode(NODE_BINARY_OP, strdup(">="), 0, $1, $3); }
     ;
 
 arithmetic_expr:
@@ -709,7 +706,7 @@ int main() {
             if (compile_c_to_executable("output/output.c", "output/program.exe")) {
                 printf("✓ Step 3 Complete: Executable created!\n");
                 
-                // NEW: Run the executable
+                // Run the executable
                 printf("Step 4: Running the generated program...\n");
                 if (run_executable("output/program.exe")) {
                     printf("✓ Step 4 Complete: Program executed successfully!\n");
