@@ -6,7 +6,7 @@ int main() {
     int result = 0;
     printf("Starting calculation program\n");
     int calculation = (20 + 10);
-    printf("%d\n", "'Calculation:'", calculation);
+    printf("%d\n", calculation);
     if ((calculation == 30)) {
     printf("Calculation is correct\n");
     } else {

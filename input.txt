@@ -10,7 +10,7 @@ console.log('Starting calculation program');
 
 // Arithmetic
 let calculation = 20 + 10;
-console.log('Calculation:', calculation);
+console.log(calculation);
 
 // Final check
 if (calculation === 30) {
