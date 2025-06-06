@@ -86,6 +86,17 @@ console.log('Multiple arguments test');
 // let unused_var = 999;  // WARNING: Variable declared but never used
 
 // ====================================================================
+// TEST 11: SYNTAX ERROR TEST
+// Comment out to avoid stopping compilation
+// ====================================================================
+// let 123invalid = 5;      // ERROR: Invalid identifier starting with digit
+// let valid_name =;        // ERROR: Missing expression after assignment
+// console.log('missing quote);  // ERROR: Unterminated string literal
+// if number > 5 {          // ERROR: Missing parentheses around condition
+//     console.log('test');
+// }
+
+// ====================================================================
 // TEST 10: COMPREHENSIVE INTEGRATION TEST (Should work)
 // ====================================================================
 let final_number = 42;
