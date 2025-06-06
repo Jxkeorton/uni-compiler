@@ -59,7 +59,7 @@ int run_executable(const char* exe_file);
 typedef enum { 
     NODE_PROGRAM, NODE_VARIABLE_DECL, NODE_ASSIGNMENT, NODE_BINARY_OP, 
     NODE_IF, NODE_CONSOLE_LOG, NODE_LITERAL, NODE_VARIABLE,
-    NODE_STATEMENT_LIST
+    NODE_STATEMENT_LIST, NODE_ARGUMENT_LIST
 } NodeType;
 
 typedef struct ASTNode {
@@ -91,7 +91,9 @@ ASTNode* root = NULL;
     struct ASTNode* ast_node;
 }
 
-%type <ast_node> program statement expression console_log statement_list arithmetic_expr if_statement
+// Fixed: Added all missing type declarations
+%type <ast_node> program statement expression console_log statement_list if_statement
+%type <ast_node> argument_list primary block
 
 %right '='
 %left EQ '<' '>'
@@ -114,7 +116,6 @@ statement:
           $$ = createASTNode(NODE_VARIABLE_DECL, strdup($2), 0, $4, NULL); 
       }
     | IDENTIFIER '=' expression ';'         { 
-          // Check if variable exists and mark as assigned
           if (!is_declared($1)) {
               YYERROR;
           }
@@ -128,55 +129,52 @@ statement:
     ;
 
 statement_list:
-    statement_list statement { $$ = createASTNode(NODE_STATEMENT_LIST, NULL, 0, $1, $2); }
-    | statement              { $$ = $1; }
+      statement_list statement              { $$ = createASTNode(NODE_STATEMENT_LIST, NULL, 0, $1, $2); }
+    | statement                             { $$ = $1; }
     ;
 
-/* Console.log */
 console_log:
-    CONSOLE '.' LOG '(' STRING ')'                          { $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, NULL, NULL); }
-  | CONSOLE '.' LOG '(' STRING ',' IDENTIFIER ')'           { 
-      if (!mark_symbol_used($7)) {
-          YYERROR;
-      }
-      $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, createASTNode(NODE_VARIABLE, strdup($7), 0, NULL, NULL), NULL); 
-  }
-  | CONSOLE '.' LOG '(' STRING ',' INTEGER ')'              { $$ = createASTNode(NODE_CONSOLE_LOG, strdup($5), 0, createASTNode(NODE_LITERAL, NULL, $7, NULL, NULL), NULL); }
-  | CONSOLE '.' LOG '(' IDENTIFIER ')'                      { 
-      if (!mark_symbol_used($5)) {
-          YYERROR;
-      }
-      $$ = createASTNode(NODE_CONSOLE_LOG, NULL, 0, createASTNode(NODE_VARIABLE, strdup($5), 0, NULL, NULL), NULL); 
-  }
+    CONSOLE '.' LOG '(' argument_list ')'   { $$ = createASTNode(NODE_CONSOLE_LOG, NULL, 0, $5, NULL); }
+    ;
+
+argument_list:
+      /* empty */                           { $$ = NULL; }
+    | expression                            { $$ = $1; }
+    | argument_list ',' expression          { $$ = createASTNode(NODE_ARGUMENT_LIST, NULL, 0, $1, $3); }
     ;
 
 /* Expressions */
 expression:
-      arithmetic_expr                       { $$ = $1; }
-    | expression EQ arithmetic_expr         { $$ = createASTNode(NODE_BINARY_OP, strdup("=="), 0, $1, $3); }
-    | expression '<' arithmetic_expr        { $$ = createASTNode(NODE_BINARY_OP, strdup("<"), 0, $1, $3); }
-    | expression '>' arithmetic_expr        { $$ = createASTNode(NODE_BINARY_OP, strdup(">"), 0, $1, $3); }
+      primary                               { $$ = $1; }
+    | expression '+' expression             { $$ = createASTNode(NODE_BINARY_OP, strdup("+"), 0, $1, $3); }
+    | expression '-' expression             { $$ = createASTNode(NODE_BINARY_OP, strdup("-"), 0, $1, $3); }
+    | expression '*' expression             { $$ = createASTNode(NODE_BINARY_OP, strdup("*"), 0, $1, $3); }
+    | expression EQ expression              { $$ = createASTNode(NODE_BINARY_OP, strdup("=="), 0, $1, $3); }
+    | expression '<' expression             { $$ = createASTNode(NODE_BINARY_OP, strdup("<"), 0, $1, $3); }
+    | expression '>' expression             { $$ = createASTNode(NODE_BINARY_OP, strdup(">"), 0, $1, $3); }
+    | '(' expression ')'                    { $$ = $2; }
     ;
 
-arithmetic_expr:
+primary:
       INTEGER                               { $$ = createASTNode(NODE_LITERAL, NULL, $1, NULL, NULL); }
+    | STRING                                { $$ = createASTNode(NODE_LITERAL, strdup($1), 0, NULL, NULL); }
     | IDENTIFIER                            { 
-          // Variable usage checking
           if (!mark_symbol_used($1)) {
               YYERROR;
           }
           $$ = createASTNode(NODE_VARIABLE, strdup($1), 0, NULL, NULL); 
       }
-    | arithmetic_expr '+' arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("+"), 0, $1, $3); }
-    | arithmetic_expr '-' arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("-"), 0, $1, $3); }
-    | arithmetic_expr '*' arithmetic_expr   { $$ = createASTNode(NODE_BINARY_OP, strdup("*"), 0, $1, $3); }
-    | '(' expression ')'                    { $$ = $2; }
     ;
 
 /* If statements */
 if_statement:
-    IF '(' expression ')' '{' statement_list '}'                    { $$ = createASTNode(NODE_IF, NULL, 0, $3, $6); }
-  | IF '(' expression ')' '{' statement_list '}' ELSE '{' statement_list '}' { $$ = createASTNode(NODE_IF, NULL, 0, $3, createASTNode(NODE_IF, NULL, 1, $6, $10)); }
+      IF '(' expression ')' block                           { $$ = createASTNode(NODE_IF, NULL, 0, $3, $5); }
+    | IF '(' expression ')' block ELSE block                { $$ = createASTNode(NODE_IF, NULL, 0, $3, createASTNode(NODE_IF, NULL, 1, $5, $7)); }
+    ;
+
+block:
+      '{' statement_list '}'                { $$ = $2; }
+    | '{' '}'                               { $$ = NULL; }
     ;
 
 %%
@@ -545,7 +543,7 @@ void yyerror(const char *s) {
     report_error(ERROR_SYNTAX, "%s", s);
 }
 
-// Updated generateCode function
+// Updated generateCode function to handle new NODE_ARGUMENT_LIST
 void generateCode(ASTNode* node, FILE* output) {
     if (!node) return;
 
@@ -579,30 +577,43 @@ void generateCode(ASTNode* node, FILE* output) {
             
         case NODE_CONSOLE_LOG:
             fprintf(output, "    printf(");
-            if (node->identifier) {
-                char* str = node->identifier;
-                fprintf(output, "\"");
-                for (int i = 1; i < strlen(str) - 1; i++) {
-                    if (str[i] == '%') fprintf(output, "%%");
-                    else fprintf(output, "%c", str[i]);
-                }
-                if (node->left) {
-                    fprintf(output, " %%d");
-                }
-                fprintf(output, "\\n\"");
-                if (node->left) {
-                    fprintf(output, ", ");
-                    generateCode(node->left, output);
-                }
-            } else if (node->left) {
-                if (node->left->type == NODE_VARIABLE) {
+            if (node->left) {
+                // Handle different argument types
+                if (node->left->type == NODE_LITERAL) {
+                    if (node->left->identifier) {
+                        // String literal
+                        char* str = node->left->identifier;
+                        fprintf(output, "\"");
+                        for (int i = 1; i < strlen(str) - 1; i++) {
+                            if (str[i] == '%') fprintf(output, "%%");
+                            else fprintf(output, "%c", str[i]);
+                        }
+                        fprintf(output, "\\n\"");
+                    } else {
+                        // Integer literal
+                        fprintf(output, "\"%d\\n\"", node->left->value);
+                    }
+                } else if (node->left->type == NODE_VARIABLE) {
                     fprintf(output, "\"%%d\\n\", ");
                     generateCode(node->left, output);
                 } else {
-                    fprintf(output, "\"%d\\n\"", node->left->value);
+                    // Expression or other types
+                    fprintf(output, "\"%%d\\n\", ");
+                    generateCode(node->left, output);
                 }
+            } else {
+                fprintf(output, "\"\\n\"");
             }
             fprintf(output, ");\n");
+            break;
+            
+        case NODE_ARGUMENT_LIST:
+            // Handle argument lists (for future extension)
+            generateCode(node->left, output);
+            if (node->right) {
+                fprintf(output, ", ");
+                generateCode(node->right, output);
+            }
             break;
             
         case NODE_BINARY_OP:
@@ -618,7 +629,13 @@ void generateCode(ASTNode* node, FILE* output) {
             break;
             
         case NODE_LITERAL:
-            fprintf(output, "%d", node->value);
+            if (node->identifier) {
+                // String literal - should not happen in arithmetic contexts
+                fprintf(output, "\"%s\"", node->identifier);
+            } else {
+                // Integer literal
+                fprintf(output, "%d", node->value);
+            }
             break;
             
         case NODE_VARIABLE:

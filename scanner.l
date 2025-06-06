@@ -31,6 +31,8 @@ void writetofile(char *ty, char *data);
 "console"       { writetofile("CONSOLE", yytext); return CONSOLE; }
 "log"           { writetofile("LOG", yytext); return LOG; }
 
+"==="           { writetofile("EQ", yytext); return EQ; }
+"=="            { writetofile("EQ", yytext); return EQ; }
 "<"             { writetofile("LT", yytext); return '<'; }
 ">"             { writetofile("GT", yytext); return '>'; }
 
