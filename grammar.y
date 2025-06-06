@@ -145,7 +145,7 @@ block:
 
 %%
 
-// Enhanced but simple error reporting
+// Error reporting
 void error(const char* format, ...) {
     va_list args;
     va_start(args, format);
