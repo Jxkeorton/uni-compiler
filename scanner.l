@@ -3,20 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
-
-// Error type constants
-#define ERROR_MEMORY 1
-#define ERROR_REDECLARATION 2
-#define ERROR_UNDECLARED_VAR 3
-#define ERROR_SEMANTIC 4
-#define ERROR_SYNTAX 5
-#define ERROR_FILE_IO 6
 
 // External variables and functions
 extern int current_line;
-extern void report_error(int error_type, const char* format, ...);
-extern void report_warning(const char* format, ...);
+extern void error(const char* format, ...);
+extern void warning(const char* format, ...);
 
 void writetofile(char *ty, char *data);
 %}
@@ -40,18 +31,17 @@ void writetofile(char *ty, char *data);
     writetofile("IDENTIFIER", yytext); 
     yylval.identifier = strdup(yytext);
     if (!yylval.identifier) {
-        report_error(ERROR_MEMORY, "Failed to allocate memory for identifier");
+        error("Failed to allocate memory for identifier");
         return 0;
     }
     return IDENTIFIER; 
 }
 
 [0-9]+          { 
-    // Check for integer overflow
-    long long value = atoll(yytext);
-    if (value > INT_MAX) {
-        report_error(ERROR_SEMANTIC, "Integer literal %s exceeds maximum value (%d)", 
-                    yytext, INT_MAX);
+    // Simple integer parsing with basic overflow check
+    long value = atol(yytext);
+    if (value > 2147483647) {  // INT_MAX
+        error("Integer literal %s is too large", yytext);
         return 0;
     }
     
@@ -61,8 +51,8 @@ void writetofile(char *ty, char *data);
 }
 
 [0-9]+\.[0-9]+  {
-    report_warning("Floating point numbers not supported - treating as error");
-    report_error(ERROR_SYNTAX, "Floating point literal '%s' not supported in this subset", yytext);
+    warning("Floating point numbers not supported - treating as error");
+    error("Floating point literal '%s' not supported in this subset", yytext);
     return 0;
 }
 
@@ -83,7 +73,7 @@ void writetofile(char *ty, char *data);
     writetofile("STRING", yytext); 
     yylval.identifier = strdup(yytext);
     if (!yylval.identifier) {
-        report_error(ERROR_MEMORY, "Failed to allocate memory for string");
+        error("Failed to allocate memory for string");
         return 0;
     }
     return STRING; 
@@ -93,7 +83,7 @@ void writetofile(char *ty, char *data);
     writetofile("STRING", yytext); 
     yylval.identifier = strdup(yytext);
     if (!yylval.identifier) {
-        report_error(ERROR_MEMORY, "Failed to allocate memory for string");
+        error("Failed to allocate memory for string");
         return 0;
     }
     return STRING; 
@@ -108,7 +98,7 @@ void writetofile(char *ty, char *data);
 "//".*          { /* Ignore single-line comments */ }
 
 .               { 
-    report_error(ERROR_SYNTAX, "Unknown character: '%c' (ASCII: %d)", yytext[0], yytext[0]); 
+    error("Unknown character: '%c' (ASCII: %d)", yytext[0], yytext[0]); 
 }
 
 %%
