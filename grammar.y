@@ -15,7 +15,7 @@ typedef struct Symbol {
     int value;
     int is_initialized;
     int times_used;
-    int line_declared;          // Keep line tracking for better errors
+    int line_declared;          
     struct Symbol* next;
 } Symbol;
 
@@ -40,7 +40,7 @@ ASTNode* createASTNode(NodeType type, char* identifier, int value, ASTNode* left
 void generateCode(ASTNode* node, FILE* output);
 void freeAST(ASTNode* node);
 
-// Enhanced but simple error reporting
+// Error reporting
 void error(const char* format, ...);
 void warning(const char* format, ...);
 
@@ -164,7 +164,7 @@ void warning(const char* format, ...) {
     va_end(args);
 }
 
-// Symbol Table Functions with better error reporting
+// Symbol Table Functions
 int add_symbol(char* name, int value, int is_initialized) {
     Symbol* existing = lookup_symbol(name);
     if (existing) {
@@ -238,7 +238,7 @@ void free_symbol_table() {
     symbol_table = NULL;
 }
 
-// AST Functions (unchanged)
+// AST Functions
 ASTNode* createASTNode(NodeType type, char* identifier, int value, ASTNode* left, ASTNode* right) {
     ASTNode* newNode = malloc(sizeof(ASTNode));
     newNode->type = type;
