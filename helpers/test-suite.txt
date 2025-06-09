@@ -8,69 +8,70 @@
 // ====================================================================
 // TEST 1: BASIC VARIABLE DECLARATIONS (Should work)
 // ====================================================================
-let number1 = 10;
-let number2 = 5;
-let result = 0;
-console.log('Test 1: Variables declared successfully');
+// let number1 = 10;
+// let number2 = 5;
+// let result = 0;
+// console.log('Test 1: Variables declared successfully');
 
 // ====================================================================
 // TEST 2: ARITHMETIC OPERATIONS (Should work)
 // ====================================================================
-result = number1 + number2;
-console.log('Addition result:', result);
+// result = number1 + number2;
+// console.log(result);
 
-result = number1 - number2;
-console.log('Subtraction result:', result);
+// result = number1 - number2;
+// console.log(result);
 
-result = number1 * number2;
-console.log('Multiplication result:', result);
+// result = number1 * number2;
+// console.log(result);
 
 // ====================================================================
 // TEST 3: IF STATEMENTS WITH COMPARISONS (Should work)
 // ====================================================================
-if (number1 > number2) {
-    console.log('Number1 is larger');
-} else {
-    console.log('Number2 is larger or equal');
-}
+// if (number1 > number2) {
+//     console.log('Number1 is larger');
+// } else {
+//     console.log('Number2 is larger or equal');
+// }
 
-if (number1 === 10) {
-    console.log('Number1 equals 10');
-}
+// if (number1 === 10) {
+//     console.log('Number1 equals 10');
+// }
 
 // ====================================================================
 // TEST 4: COMPLEX EXPRESSIONS WITH PARENTHESES (Should work)
 // ====================================================================
-let calculation = 20 + 15;
-console.log('Simple calculation:', calculation);
+// let calculation = 20 + 15;
+// console.log(calculation);
 
-let parentheses_calc = (number1 + number2) * 2;
-console.log('Parentheses calculation:', parentheses_calc);
+// let parentheses_calc = (number1 + number2) * 2;
+// console.log(parentheses_calc);
 
 // ====================================================================
 // TEST 5: NESTED IF-ELSE STATEMENTS (Should work)
 // ====================================================================
-let score = 85;
-if (score > 90) {
-    console.log('Grade: A');
-} else {
-    if (score > 80) {
-        console.log('Grade: B');
-    } else {
-        console.log('Grade: C or below');
-    }
-}
+// let score = 85;
+// if (score > 90) {
+//     console.log('Grade: A');
+// } else {
+//     if (score > 80) {
+//         console.log('Grade: B');
+//     } else {
+//         console.log('Grade: C or below');
+//     }
+// }
 
 // ====================================================================
 // TEST 6: STRING LITERALS AND CONSOLE OUTPUT (Should work)
 // ====================================================================
-console.log('This is a string test');
-console.log('Multiple arguments test');
-
+// console.log('This is a string test');
+// console.log('Multiple arguments test');
+// 
 // ====================================================================
 // TEST 7: VARIABLE REDECLARATION ERROR (Should produce error)
 // Comment out to avoid stopping compilation
 // ====================================================================
+// let number1 = 2
 // let number1 = 25;  // ERROR: Variable 'number1' is already declared
 
 // ====================================================================
@@ -99,15 +100,15 @@ console.log('Multiple arguments test');
 // ====================================================================
 // TEST 10: COMPREHENSIVE INTEGRATION TEST (Should work)
 // ====================================================================
-let final_number = 42;
-let comparison_value = 40;
+// let final_number = 42;
+// let comparison_value = 40;
 
-if (final_number > comparison_value) {
-    console.log('Final test passed!');
-    let success_indicator = 1;
-    console.log('Success indicator:', success_indicator);
-} else {
-    console.log('Final test failed');
-}
+// if (final_number > comparison_value) {
+//    console.log('Final test passed!');
+//    let success_indicator = 1;
+//    console.log(success_indicator);
+// } else {
+//    console.log('Final test failed');
+// }
 
 console.log('Test suite execution complete');
